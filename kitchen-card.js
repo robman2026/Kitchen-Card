@@ -15,7 +15,7 @@
  *  6. Sensors — motion, door, illuminance, occupancy etc.
  */
 
-const CARD_VERSION = "1.2.0";
+const CARD_VERSION = "1.2.1";
 
 // ── LitElement bootstrap (same pattern as all robman2026 cards) ──────────────
 const LitElement = Object.getPrototypeOf(customElements.get("ha-panel-lovelace"));
@@ -298,6 +298,16 @@ const CARD_CSS = [
   ".kc-badge-on{background:rgba(34,197,94,.15);color:#4ade80;}",
   ".kc-badge-off{background:rgba(255,255,255,.07);color:rgba(255,255,255,.45);}",
   ".kc-badge-idle{background:rgba(79,163,224,.1);color:#6dbfff;}",
+
+  // ── APPLIANCE CONTROLS ROW ──
+  ".kc-appl-ctrl-row{display:flex;flex-wrap:wrap;gap:5px;padding:7px 12px 9px;border-top:1px solid rgba(255,255,255,.05);}",
+  ".kc-ctrl-btn{display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:600;padding:4px 10px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);color:rgba(255,255,255,.85);cursor:pointer;transition:background .15s,border-color .15s;user-select:none;letter-spacing:.03em;}",
+  ".kc-ctrl-btn:hover{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.22);}",
+  ".kc-ctrl-btn:active{transform:scale(.96);}",
+  ".kc-ctrl-btn.cb-on{background:rgba(224,180,79,.15);border-color:rgba(224,180,79,.35);color:#fcd34d;}",
+  ".kc-ctrl-btn.cb-pause{background:rgba(79,163,224,.12);border-color:rgba(79,163,224,.3);color:#6dbfff;}",
+  ".kc-ctrl-btn.cb-stop{background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.3);color:#f87171;}",
+  ".kc-ctrl-btn-dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0;}",
 
   // ── LIGHTS ──
   ".kc-lights-grid{display:grid;gap:5px;}",
@@ -670,6 +680,7 @@ class KitchenCard extends HTMLElement {
 
     const subHTML  = subParts.length ? '<div class="kc-appl-sub kc-strip-row" id="kc-appl-sub-' + i + '" style="gap:6px">' + subParts.join('') + '</div>' : '<div class="kc-appl-sub" id="kc-appl-sub-' + i + '">' + ago + '</div>';
     const tileCls  = 'kc-appl-tile' + (on && !unav ? ' appl-active' : '');
+    const ctrlHTML = (type === 'oven' || type === 'dishwasher') ? this._controlsRowHTML(a, i) : '';
 
     return '<div class="' + tileCls + '" data-action="more-info" data-entity="' + (a.entity || '') + '" data-idx="' + i + '">' +
       '<div class="kc-appl-head">' +
@@ -682,7 +693,56 @@ class KitchenCard extends HTMLElement {
       '</div>' +
       stripHTML +
       progBarHTML +
+      ctrlHTML +
     '</div>';
+  }
+
+  // Builds the active-only controls row for oven/dishwasher.
+  // Only buttons whose entity is 'on' / truthy are shown.
+  // Buttons use data-action="toggle" for switches, data-action="press" for buttons (scenes/scripts).
+  _controlsRowHTML(a, i) {
+    const hass = this._hass;
+    const type = a.type || 'generic';
+    const sv   = (v) => stateVal(hass, v);
+
+    // Define controls per type: { label, entity, style, isButton }
+    // isButton=true → press service (input_button / script), else toggle
+    const defs = type === 'oven' ? [
+      { label: 'Fast Pre-heat', entity: a.oven_fast_preheat_entity, style: 'cb-on' },
+      { label: 'Child Lock',    entity: a.oven_child_lock_entity,   style: 'cb-on' },
+      { label: 'Pause',         entity: a.oven_pause_entity,        style: 'cb-pause', isButton: true },
+      { label: 'Stop',          entity: a.oven_stop_entity,         style: 'cb-stop',  isButton: true },
+    ] : type === 'dishwasher' ? [
+      { label: 'Extra Dry',     entity: a.dw_extra_dry_entity,      style: 'cb-on' },
+      { label: 'Half Load',     entity: a.dw_half_load_entity,      style: 'cb-on' },
+      { label: 'Hygiene +',     entity: a.dw_hygiene_entity,        style: 'cb-on' },
+      { label: 'Intensive',     entity: a.dw_intensive_entity,      style: 'cb-on' },
+      { label: 'Silence',       entity: a.dw_silence_entity,        style: 'cb-on' },
+      { label: 'Vario Speed',   entity: a.dw_vario_entity,          style: 'cb-on' },
+      { label: 'Stop',          entity: a.dw_stop_entity,           style: 'cb-stop',  isButton: true },
+    ] : [];
+
+    const btns = defs.filter(function(d) {
+      if (!d.entity) return false;
+      const s = sv(d.entity);
+      if (!s || isUnavail(s)) return false;
+      // For toggle switches: show only if on
+      // For buttons (input_button/script): always show if entity exists and available
+      if (d.isButton) return true;
+      return isOn(s);
+    });
+
+    if (!btns.length) return '';
+
+    const btnsHTML = btns.map(function(d) {
+      const action = d.isButton ? 'press' : 'toggle';
+      return '<div class="kc-ctrl-btn ' + d.style + '" data-action="' + action + '" data-entity="' + d.entity + '">' +
+        '<span class="kc-ctrl-btn-dot"></span>' +
+        d.label +
+      '</div>';
+    }).join('');
+
+    return '<div class="kc-appl-ctrl-row" id="kc-appl-ctrl-' + i + '">' + btnsHTML + '</div>';
   }
 
   _appliancesHTML() {
@@ -1009,7 +1069,55 @@ class KitchenCard extends HTMLElement {
         pb.style.width = Math.min(100, Math.max(0, prgPct)).toFixed(1) + '%';
       }
 
-      // Temp arc gauge
+      // Controls row — re-render entirely since visible buttons depend on state
+      if (type === 'oven' || type === 'dishwasher') {
+        const ctrlEl = sr.getElementById('kc-appl-ctrl-' + i);
+        const newCtrl = self._controlsRowHTML(a, i);
+        if (ctrlEl) {
+          // replace existing row
+          if (!newCtrl) {
+            ctrlEl.remove();
+          } else {
+            const tmp = document.createElement('div');
+            tmp.innerHTML = newCtrl;
+            const fresh = tmp.firstElementChild;
+            if (fresh) {
+              ctrlEl.replaceWith(fresh);
+              fresh.querySelectorAll('[data-action]').forEach(function(btn) {
+                btn.addEventListener('click', function(e) {
+                  e.stopPropagation();
+                  const act = btn.dataset.action, ent = btn.dataset.entity;
+                  if (!ent) return;
+                  if (act === 'press') self._press(ent);
+                  else self._toggle(ent);
+                });
+              });
+            }
+          }
+        } else if (newCtrl) {
+          // insert after prog bar or strip or head
+          const pb = sr.getElementById('kc-appl-pb-' + i);
+          const strip = tile.querySelector('.kc-appl-strip');
+          const anchor = pb || strip || tile.querySelector('.kc-appl-head');
+          if (anchor) {
+            const tmp = document.createElement('div');
+            tmp.innerHTML = newCtrl;
+            const fresh = tmp.firstElementChild;
+            if (fresh) {
+              anchor.after(fresh);
+              fresh.querySelectorAll('[data-action]').forEach(function(btn) {
+                btn.addEventListener('click', function(e) {
+                  e.stopPropagation();
+                  const act = btn.dataset.action, ent = btn.dataset.entity;
+                  if (!ent) return;
+                  if (act === 'press') self._press(ent);
+                  else self._toggle(ent);
+                });
+              });
+            }
+          }
+        }
+      }
       const tempEnt = (type === 'oven') ? a.oven_temp_entity : a.temp_entity;
       if (tempEnt) {
         const tvEl      = sr.getElementById('kc-appl-tv-' + i);
@@ -1112,9 +1220,17 @@ class KitchenCard extends HTMLElement {
         const action = el.dataset.action, entity = el.dataset.entity;
         if (!entity || entity === '' || entity === 'undefined') return;
         if (action === 'toggle') self._toggle(entity);
+        else if (action === 'press') self._press(entity);
         else self._moreInfo(entity);
       });
     });
+  }
+
+  _press(id) {
+    if (!id || !this._hass) return;
+    const domain = id.split('.')[0];
+    const svc = domain === 'script' ? 'turn_on' : domain === 'input_button' ? 'press' : 'press';
+    this._hass.callService(domain, svc, { entity_id: id });
   }
 
   getCardSize() { return 8; }
@@ -1361,6 +1477,12 @@ class KitchenCardEditor extends LitElement {
               ['switch','input_boolean'], 'Fast Pre-heat (switch) — optional')}
             ${self._entityPicker(a.oven_child_lock_entity, (v) => self._updateItem('appliances', i, 'oven_child_lock_entity', v),
               ['switch','input_boolean'], 'Child Lock (switch) — optional')}
+            ${self._entityPicker(a.oven_pause_entity, (v) => self._updateItem('appliances', i, 'oven_pause_entity', v),
+              ['button','input_button','script'], 'Pause Program (button) — optional')}
+            ${self._entityPicker(a.oven_stop_entity, (v) => self._updateItem('appliances', i, 'oven_stop_entity', v),
+              ['button','input_button','script'], 'Stop Program (button) — optional')}
+            ${self._entityPicker(a.oven_resume_entity, (v) => self._updateItem('appliances', i, 'oven_resume_entity', v),
+              ['button','input_button','script'], 'Resume Program (button) — optional')}
             ${self._entityPicker(a.oven_prog_finish_entity, (v) => self._updateItem('appliances', i, 'oven_prog_finish_entity', v),
               ['sensor'], 'Program Finish Time (sensor) — optional')}
             ${self._entityPicker(a.oven_prog_progress_entity, (v) => self._updateItem('appliances', i, 'oven_prog_progress_entity', v),
@@ -1401,6 +1523,8 @@ class KitchenCardEditor extends LitElement {
               ['switch','input_boolean'], 'Silence on Demand (switch) — optional')}
             ${self._entityPicker(a.dw_vario_entity, (v) => self._updateItem('appliances', i, 'dw_vario_entity', v),
               ['switch','input_boolean'], 'Vario Speed + (switch) — optional')}
+            ${self._entityPicker(a.dw_stop_entity, (v) => self._updateItem('appliances', i, 'dw_stop_entity', v),
+              ['button','input_button','script'], 'Stop Program (button) — optional')}
             ${self._entityPicker(a.dw_remote_entity, (v) => self._updateItem('appliances', i, 'dw_remote_entity', v),
               ['binary_sensor','sensor'], 'Remote Control (binary_sensor/sensor) — optional')}
           ` : ''}
