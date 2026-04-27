@@ -3,7 +3,7 @@
  * Power-first layout with Appliances, Lights, Climate gauges, and Sensors
  * Author: robman2026
  * GitHub: https://github.com/robman2026/kitchen-card
- * Version: 1.0.0
+ * Version: 1.1.0
  * License: MIT
  *
  * Sections (top → bottom):
