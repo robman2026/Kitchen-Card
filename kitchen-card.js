@@ -2,7 +2,7 @@
  * Kitchen Dashboard Card
  * Power-first layout with Appliances, Lights, Climate gauges, and Sensors
  * Author: robman2026
- * GitHub: https://github.com/robman2026/Multi-panel-dashboard-card
+ * GitHub: https://github.com/robman2026/Kitchen-Card
  * Version: 1.0.0
  * License: MIT
  *
@@ -1332,7 +1332,7 @@ window.customCards.push({
   name:             'Kitchen Card',
   description:      'Power-first kitchen dashboard — power gauges · appliances · lights · climate · sensors',
   preview:          true,
-  documentationURL: 'https://github.com/robman2026/Multi-panel-dashboard-card',
+  documentationURL: 'https://github.com/robman2026/Kitchen-Card',
 });
 
 console.info(
