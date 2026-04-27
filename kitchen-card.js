@@ -3,7 +3,7 @@
  * Power-first layout with Appliances, Lights, Climate gauges, and Sensors
  * Author: robman2026
  * GitHub: https://github.com/robman2026/kitchen-card
- * Version: 1.1.0
+ * Version: 1.0.0
  * License: MIT
  *
  * Sections (top → bottom):
@@ -15,7 +15,7 @@
  *  6. Sensors — motion, door, illuminance, occupancy etc.
  */
 
-const CARD_VERSION = "1.1.0";
+const CARD_VERSION = "1.2.0";
 
 // ── LitElement bootstrap (same pattern as all robman2026 cards) ──────────────
 const LitElement = Object.getPrototypeOf(customElements.get("ha-panel-lovelace"));
@@ -284,9 +284,7 @@ const CARD_CSS = [
 
   // ── APPLIANCES ──
   ".kc-appl-list{display:flex;flex-direction:column;gap:6px;}",
-  ".kc-appl-tile{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:11px;padding:10px 12px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:background .15s;min-width:0;}",
-  ".kc-appl-tile:hover{background:rgba(255,255,255,.06);}",
-  ".kc-appl-tile.appl-active{background:rgba(224,180,79,.05);border-color:rgba(224,180,79,.2);}",
+  ".kc-appl-tile{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:11px;overflow:hidden;cursor:pointer;transition:background .15s;min-width:0;}",".kc-appl-tile:hover{background:rgba(255,255,255,.06);}",".kc-appl-tile.appl-active{background:rgba(224,180,79,.05);border-color:rgba(224,180,79,.2);}",".kc-appl-head{padding:10px 12px;display:flex;align-items:center;gap:12px;}",".kc-appl-strip{background:rgba(255,255,255,.025);border-top:1px solid rgba(255,255,255,.05);padding:7px 12px;display:grid;gap:6px;}",".kc-appl-strip-item{display:flex;flex-direction:column;gap:2px;}",".kc-appl-strip-lbl{font-size:8px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.07em;}",".kc-appl-strip-val{font-size:10px;font-weight:600;color:rgba(255,255,255,.8);font-family:monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}",".kc-appl-prog-wrap{height:3px;background:rgba(255,255,255,.06);margin:0 12px 8px;border-radius:2px;overflow:hidden;}",".kc-appl-prog-bar{height:3px;border-radius:2px;transition:width .4s ease;}",".kc-op-pill{display:inline-flex;align-items:center;gap:4px;font-size:9px;font-weight:600;padding:2px 7px;border-radius:8px;letter-spacing:.04em;}",".kc-op-ready{background:rgba(34,197,94,.12);color:#4ade80;}",".kc-op-active{background:rgba(224,180,79,.15);color:#fcd34d;}",".kc-op-idle{background:rgba(255,255,255,.07);color:rgba(255,255,255,.5);}",".kc-op-dot{width:5px;height:5px;border-radius:50%;background:currentColor;}",".kc-door-icon{width:14px;height:14px;flex-shrink:0;}",".kc-strip-row{display:flex;align-items:center;gap:4px;}",".kc-remote-dot{width:6px;height:6px;border-radius:50%;display:inline-block;margin-right:3px;}",
   ".kc-appl-temp-wrap{position:relative;flex-shrink:0;width:46px;height:46px;}",
   ".kc-appl-temp-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;}",
   ".kc-appl-temp-val{font-size:10px;font-weight:600;font-family:monospace;line-height:1;}",
@@ -327,7 +325,7 @@ const CARD_CSS = [
   ".kc-g-name{font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:rgba(255,255,255,.8);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;width:100%;}",
 
   // ── SENSORS ──
-  ".kc-sensor-list{display:flex;flex-direction:column;gap:5px;}",
+  ".kc-sensor-grid{display:grid;gap:5px;}",".kc-inner.bp-xs .kc-sensor-grid{grid-template-columns:1fr!important;}",
   ".kc-sensor-tile{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.05);border-radius:9px;padding:7px 10px;display:flex;align-items:center;gap:8px;cursor:pointer;transition:background .15s;min-width:0;}",
   ".kc-sensor-tile:hover{background:rgba(255,255,255,.06);}",
   ".kc-sensor-tile.motion-active{background:rgba(255,170,80,.08);border-color:rgba(255,170,80,.22);}",
@@ -515,28 +513,75 @@ class KitchenCard extends HTMLElement {
   }
 
   // ── Appliances ────────────────────────────────────────────────────────────
-  // Renders left icon/gauge, info block and badge for any appliance type.
-  // type = 'oven' | 'dishwasher' | 'generic'
-  _applTileHTML(a, i) {
-    const hass    = this._hass;
-    const type    = a.type || 'generic';
-    const unavail = (v) => isUnavail(stateVal(hass, v));
-    const sv      = (v) => stateVal(hass, v);
-    const sn      = (v) => stateNum(hass, v);
-    const sl      = (v) => { const s = sv(v); return (s && !isUnavail(s)) ? stateLabel(s) : ''; };
+  // Option B: header row + shaded detail strip + progress bar
+  // Visual enhancements: temp arc, op-state pill, door icon, progress bar, remote dot
 
-    // ── left widget (temp arc or icon) ──────────────────────────────────
+  _opPillHTML(opVal) {
+    if (!opVal || isUnavail(opVal)) return '';
+    const low = opVal.toLowerCase();
+    const cls = low.includes('ready') ? 'kc-op-ready'
+              : (low.includes('run') || low.includes('active') || low.includes('heat')) ? 'kc-op-active'
+              : 'kc-op-idle';
+    return '<span class="kc-op-pill ' + cls + '"><span class="kc-op-dot"></span>' + stateLabel(opVal) + '</span>';
+  }
+
+  _doorIconHTML(doorVal) {
+    if (!doorVal || isUnavail(doorVal)) return '';
+    const open = isOn(doorVal) || doorVal.toLowerCase() === 'open';
+    const color = open ? '#ffd26d' : 'rgba(255,255,255,.5)';
+    // Door ajar (open) vs closed — simple rect with gap at top
+    const path = open
+      ? 'M8 3h8a2 2 0 012 2v16H6V5a2 2 0 012-2zm0 0v5m8-5v3'
+      : 'M8 3h8a2 2 0 012 2v16H6V5a2 2 0 012-2zm4 9a1 1 0 100-2 1 1 0 000 2z';
+    return '<svg class="kc-door-icon" viewBox="0 0 24 24" fill="none" stroke="' + color + '" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="' + path + '"/></svg>';
+  }
+
+  _remoteDotHTML(remoteVal) {
+    if (!remoteVal || isUnavail(remoteVal)) return '';
+    const on = isOn(remoteVal) || remoteVal.toLowerCase() === 'on';
+    const color = on ? '#4ade80' : 'rgba(255,255,255,.25)';
+    return '<span class="kc-remote-dot" style="background:' + color + ';box-shadow:' + (on ? '0 0 4px ' + color : 'none') + '"></span>';
+  }
+
+  _stripItem(label, valHTML) {
+    return '<div class="kc-appl-strip-item">' +
+      '<div class="kc-appl-strip-lbl">' + label + '</div>' +
+      '<div class="kc-appl-strip-val kc-strip-row">' + valHTML + '</div>' +
+    '</div>';
+  }
+
+  _applTileHTML(a, i) {
+    const hass = this._hass;
+    const type = a.type || 'generic';
+    const sv   = (v) => stateVal(hass, v);
+    const sn   = (v) => stateNum(hass, v);
+    const sl   = (v) => { const s = sv(v); return (s && !isUnavail(s)) ? stateLabel(s) : '—'; };
+
+    // ── left widget: temp arc (with optional setpoint ring) or icon ──────
     let leftHTML;
     const tempEnt = (type === 'oven') ? a.oven_temp_entity : a.temp_entity;
     if (tempEnt) {
-      const tempVal   = sn(tempEnt);
-      const tempMax   = parseFloat(a.temp_max) || (type === 'oven' ? 300 : 100);
-      const tempPct   = Math.min(1, Math.max(0, tempVal / tempMax));
-      const tempTh    = parseTh(a.temp_thresholds, TH.applianceTemp);
-      const tempColor = colorFromThresholds(tempVal, tempTh);
-      const unit      = stateAttr(hass, tempEnt, 'unit_of_measurement') || '°C';
+      const tempVal    = sn(tempEnt);
+      const tempMax    = parseFloat(a.temp_max) || (type === 'oven' ? 300 : 100);
+      const tempPct    = Math.min(1, Math.max(0, tempVal / tempMax));
+      const tempTh     = parseTh(a.temp_thresholds, TH.applianceTemp);
+      const tempColor  = colorFromThresholds(tempVal, tempTh);
+      const unit       = stateAttr(hass, tempEnt, 'unit_of_measurement') || '°C';
+      // Setpoint marker ring for oven
+      const setpointEnt = type === 'oven' ? a.oven_setpoint_entity : null;
+      const spVal  = setpointEnt ? sn(setpointEnt) : 0;
+      const spPct  = spVal > 0 ? Math.min(1, spVal / tempMax) : 0;
+      const size   = 46;
+      const r      = size * 0.41;
+      const cx     = size / 2;
+      const circ   = 2 * Math.PI * r;
+      const spOff  = circ * (1 - spPct);
+      const spRing = spVal > 0
+        ? '<circle cx="' + cx + '" cy="' + cx + '" r="' + r + '" fill="none" stroke="rgba(255,255,255,.18)" stroke-width="1.5" stroke-linecap="round" stroke-dasharray="' + circ.toFixed(1) + '" stroke-dashoffset="' + spOff.toFixed(1) + '" transform="rotate(-90 ' + cx + ' ' + cx + ')" stroke-dasharray="4 4"/>'
+        : '';
       leftHTML = '<div class="kc-appl-temp-wrap">' +
-        applTempSVG(46, tempPct, tempColor) +
+        applTempSVG(size, tempPct, tempColor) +
+        (spVal > 0 ? '<svg style="position:absolute;inset:0;pointer-events:none" width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '">' + spRing + '</svg>' : '') +
         '<div class="kc-appl-temp-center">' +
           '<span class="kc-appl-temp-val" id="kc-appl-tv-' + i + '" style="color:' + tempColor + '">' + Math.round(tempVal) + '</span>' +
           '<span class="kc-appl-temp-unit">' + unit + '</span>' +
@@ -544,63 +589,99 @@ class KitchenCard extends HTMLElement {
       '</div>';
     } else {
       const defaultIcon = type === 'oven' ? 'oven' : type === 'dishwasher' ? 'dishwasher' : (a.icon || 'appliance');
-      const mainState   = sv(a.entity);
-      const on          = isOn(mainState), unav = isUnavail(mainState);
-      const icolor      = unav ? 'rgba(255,255,255,.2)' : on ? '#e0b44f' : 'rgba(255,255,255,.35)';
+      const mainSt = sv(a.entity);
+      const icolor = isUnavail(mainSt) ? 'rgba(255,255,255,.2)' : isOn(mainSt) ? '#e0b44f' : 'rgba(255,255,255,.35)';
       leftHTML = '<div class="kc-appl-icon">' + renderIcon(a.icon || defaultIcon, icolor, 20) + '</div>';
     }
 
-    // ── main state entity + badge ────────────────────────────────────────
+    // ── main state + badge ───────────────────────────────────────────────
     const mainState = sv(a.entity);
-    const on        = isOn(mainState);
-    const unav      = isUnavail(mainState);
-
+    const on  = isOn(mainState), unav = isUnavail(mainState);
     let badgeCls = 'kc-badge kc-badge-off', badgeTxt = 'Off';
-    if (unav)   { badgeCls = 'kc-badge kc-badge-off'; badgeTxt = '—'; }
-    else if (on){ badgeCls = 'kc-badge kc-badge-on';  badgeTxt = a.state_on_label  || 'On'; }
-    else        { badgeCls = 'kc-badge kc-badge-off'; badgeTxt = a.state_off_label || 'Off'; }
+    if (unav)    { badgeCls = 'kc-badge kc-badge-off'; badgeTxt = '—'; }
+    else if (on) { badgeCls = 'kc-badge kc-badge-on';  badgeTxt = a.state_on_label  || 'On'; }
+    else         { badgeCls = 'kc-badge kc-badge-off'; badgeTxt = a.state_off_label || 'Off'; }
 
-    // ── sub-line: type-specific status summary ───────────────────────────
+    // ── sub-line ─────────────────────────────────────────────────────────
     const ago = hass && a.entity && hass.states[a.entity] ? agoStr(hass.states[a.entity].last_changed) : '';
     let subParts = [];
+    let stripHTML = '', progBarHTML = '';
 
     if (type === 'oven') {
-      const opState  = sl(a.oven_operation_entity);
-      const prog     = sl(a.oven_active_program_entity);
-      const setpoint = a.oven_setpoint_entity ? sn(a.oven_setpoint_entity) : null;
-      if (opState)              subParts.push(opState);
-      if (prog && prog !== 'Unknown') subParts.push(prog);
-      if (setpoint !== null && setpoint > 0) subParts.push('→ ' + Math.round(setpoint) + '°C');
-      if (!subParts.length && ago) subParts.push(ago);
-    } else if (type === 'dishwasher') {
-      const opState  = sl(a.dw_operation_entity);
-      const prog     = sl(a.dw_active_program_entity);
-      const door     = sv(a.dw_door_entity);
-      const progress = a.dw_progress_entity ? sn(a.dw_progress_entity) : null;
-      if (opState)              subParts.push(opState);
-      if (prog && prog !== 'Unknown') subParts.push(prog);
-      if (door && !isUnavail(door))   subParts.push('Door: ' + stateLabel(door));
-      if (progress !== null && progress > 0) subParts.push(Math.round(progress) + '%');
-      if (!subParts.length && ago) subParts.push(ago);
-    } else {
-      if (a.mode_entity) {
-        const mv = sv(a.mode_entity);
-        if (mv && !isUnavail(mv)) subParts.push(stateLabel(mv));
+      const opVal  = sv(a.oven_operation_entity);
+      const prog   = sv(a.oven_active_program_entity);
+      const sp     = a.oven_setpoint_entity ? sn(a.oven_setpoint_entity) : null;
+      const door   = sv(a.oven_door_entity);
+      const finish = sv(a.oven_prog_finish_entity);
+      const prgPct = a.oven_prog_progress_entity ? sn(a.oven_prog_progress_entity) : null;
+      const remote = sv(a.oven_remote_entity);
+
+      // sub-line: op pill + door
+      if (opVal && !isUnavail(opVal)) subParts.push(this._opPillHTML(opVal));
+      if (door  && !isUnavail(door))  subParts.push(this._doorIconHTML(door) + ' ' + stateLabel(door));
+
+      // strip items
+      const stripItems = [];
+      if (sp !== null)                   stripItems.push(this._stripItem('Setpoint', (sp > 0 ? Math.round(sp) + '°C' : '—')));
+      if (prog)                          stripItems.push(this._stripItem('Program', (isUnavail(prog) ? '—' : stateLabel(prog))));
+      if (prgPct !== null)               stripItems.push(this._stripItem('Progress', (prgPct > 0 ? Math.round(prgPct) + '%' : '—')));
+      if (finish)                        stripItems.push(this._stripItem('Finish', (isUnavail(finish) ? '—' : stateLabel(finish))));
+      if (remote)                        stripItems.push(this._stripItem('Remote', this._remoteDotHTML(remote) + (isUnavail(remote) ? '—' : stateLabel(remote))));
+
+      if (stripItems.length) {
+        const cols = Math.min(stripItems.length, 4);
+        stripHTML = '<div class="kc-appl-strip" style="grid-template-columns:repeat(' + cols + ',1fr)">' + stripItems.join('') + '</div>';
       }
+      if (prgPct !== null && prgPct > 0) {
+        progBarHTML = '<div class="kc-appl-prog-wrap"><div class="kc-appl-prog-bar" id="kc-appl-pb-' + i + '" style="width:' + Math.min(100, prgPct).toFixed(1) + '%;background:#e0b44f"></div></div>';
+      }
+      if (!subParts.length && ago) subParts.push(ago);
+
+    } else if (type === 'dishwasher') {
+      const opVal  = sv(a.dw_operation_entity);
+      const prog   = sv(a.dw_active_program_entity);
+      const door   = sv(a.dw_door_entity);
+      const prgPct = a.dw_progress_entity ? sn(a.dw_progress_entity) : null;
+      const finish = sv(a.dw_finish_entity);
+      const remote = sv(a.dw_remote_entity);
+
+      if (opVal && !isUnavail(opVal)) subParts.push(this._opPillHTML(opVal));
+      if (door  && !isUnavail(door))  subParts.push(this._doorIconHTML(door) + ' ' + stateLabel(door));
+
+      const stripItems = [];
+      if (prog)                          stripItems.push(this._stripItem('Program', (isUnavail(prog) ? '—' : stateLabel(prog))));
+      if (prgPct !== null)               stripItems.push(this._stripItem('Progress', (prgPct > 0 ? Math.round(prgPct) + '%' : '—')));
+      if (finish)                        stripItems.push(this._stripItem('Finish', (isUnavail(finish) ? '—' : stateLabel(finish))));
+      if (remote)                        stripItems.push(this._stripItem('Remote', this._remoteDotHTML(remote) + (isUnavail(remote) ? '—' : stateLabel(remote))));
+
+      if (stripItems.length) {
+        const cols = Math.min(stripItems.length, 4);
+        stripHTML = '<div class="kc-appl-strip" style="grid-template-columns:repeat(' + cols + ',1fr)">' + stripItems.join('') + '</div>';
+      }
+      if (prgPct !== null && prgPct > 0) {
+        progBarHTML = '<div class="kc-appl-prog-wrap"><div class="kc-appl-prog-bar" id="kc-appl-pb-' + i + '" style="width:' + Math.min(100, prgPct).toFixed(1) + '%;background:#6dbfff"></div></div>';
+      }
+      if (!subParts.length && ago) subParts.push(ago);
+
+    } else {
+      if (a.mode_entity) { const mv = sv(a.mode_entity); if (mv && !isUnavail(mv)) subParts.push(stateLabel(mv)); }
       if (!subParts.length && ago) subParts.push(ago);
     }
 
-    const subTxt    = subParts.join(' · ');
-    const tileCls   = 'kc-appl-tile' + (on && !unav ? ' appl-active' : '');
-    const clickEnt  = a.entity || '';
+    const subHTML  = subParts.length ? '<div class="kc-appl-sub kc-strip-row" id="kc-appl-sub-' + i + '" style="gap:6px">' + subParts.join('') + '</div>' : '<div class="kc-appl-sub" id="kc-appl-sub-' + i + '">' + ago + '</div>';
+    const tileCls  = 'kc-appl-tile' + (on && !unav ? ' appl-active' : '');
 
-    return '<div class="' + tileCls + '" data-action="more-info" data-entity="' + clickEnt + '" data-idx="' + i + '">' +
-      leftHTML +
-      '<div class="kc-appl-info">' +
-        '<div class="kc-appl-name">' + (a.label || ('Appliance ' + (i + 1))) + '</div>' +
-        '<div class="kc-appl-sub" id="kc-appl-sub-' + i + '">' + subTxt + '</div>' +
+    return '<div class="' + tileCls + '" data-action="more-info" data-entity="' + (a.entity || '') + '" data-idx="' + i + '">' +
+      '<div class="kc-appl-head">' +
+        leftHTML +
+        '<div class="kc-appl-info">' +
+          '<div class="kc-appl-name">' + (a.label || ('Appliance ' + (i + 1))) + '</div>' +
+          subHTML +
+        '</div>' +
+        '<div class="kc-appl-state"><span class="' + badgeCls + '">' + badgeTxt + '</span></div>' +
       '</div>' +
-      '<div class="kc-appl-state"><span class="' + badgeCls + '">' + badgeTxt + '</span></div>' +
+      stripHTML +
+      progBarHTML +
     '</div>';
   }
 
@@ -730,10 +811,11 @@ class KitchenCard extends HTMLElement {
       '</div>';
     }).join('');
 
+    const sCols = Math.max(1, Math.min(4, parseInt(cfg.sensors_columns) || 1));
     return (
       '<div class="kc-divider"></div>' +
       '<div class="kc-sec"><span class="kc-sec-dot" style="background:#4fa3e0;box-shadow:0 0 5px #4fa3e0"></span>' + (cfg.label_sensors || 'Sensors') + '</div>' +
-      '<div class="kc-sensor-list">' + tilesHTML + '</div>'
+      '<div class="kc-sensor-grid" style="grid-template-columns:repeat(' + sCols + ',minmax(0,1fr))">' + tilesHTML + '</div>'
     );
   }
 
@@ -829,6 +911,7 @@ class KitchenCard extends HTMLElement {
     }
 
     // Appliances — typed update (oven / dishwasher / generic)
+    const self = this;
     (cfg.appliances || []).forEach(function(a, i) {
       const tile = sr.querySelector('.kc-appl-tile[data-idx="' + i + '"]');
       if (!tile) return;
@@ -845,37 +928,88 @@ class KitchenCard extends HTMLElement {
         badge.textContent = unavail ? '—' : on ? (a.state_on_label || 'On') : (a.state_off_label || 'Off');
       }
 
-      // Sub-line
+      // Sub-line — re-render as HTML (contains pills/icons)
       const subEl = sr.getElementById('kc-appl-sub-' + i);
       if (subEl) {
         const ago = hass && a.entity && hass.states[a.entity] ? agoStr(hass.states[a.entity].last_changed) : '';
         let parts = [];
         if (type === 'oven') {
-          const op  = stateVal(hass, a.oven_operation_entity);
-          const pr  = stateVal(hass, a.oven_active_program_entity);
-          const sp  = a.oven_setpoint_entity ? stateNum(hass, a.oven_setpoint_entity) : null;
-          if (op && !isUnavail(op))              parts.push(stateLabel(op));
-          if (pr && !isUnavail(pr) && pr !== 'unknown') parts.push(stateLabel(pr));
-          if (sp !== null && sp > 0)             parts.push('→ ' + Math.round(sp) + '°C');
-          if (!parts.length && ago)              parts.push(ago);
+          const opVal = stateVal(hass, a.oven_operation_entity);
+          const door  = stateVal(hass, a.oven_door_entity);
+          if (opVal && !isUnavail(opVal)) parts.push(self._opPillHTML(opVal));
+          if (door  && !isUnavail(door))  parts.push(self._doorIconHTML(door) + ' ' + stateLabel(door));
+          if (!parts.length && ago)       parts.push(ago);
         } else if (type === 'dishwasher') {
-          const op   = stateVal(hass, a.dw_operation_entity);
-          const pr   = stateVal(hass, a.dw_active_program_entity);
-          const door = stateVal(hass, a.dw_door_entity);
-          const prog = a.dw_progress_entity ? stateNum(hass, a.dw_progress_entity) : null;
-          if (op && !isUnavail(op))                    parts.push(stateLabel(op));
-          if (pr && !isUnavail(pr) && pr !== 'unknown') parts.push(stateLabel(pr));
-          if (door && !isUnavail(door))                parts.push('Door: ' + stateLabel(door));
-          if (prog !== null && prog > 0)               parts.push(Math.round(prog) + '%');
-          if (!parts.length && ago)                    parts.push(ago);
+          const opVal = stateVal(hass, a.dw_operation_entity);
+          const door  = stateVal(hass, a.dw_door_entity);
+          if (opVal && !isUnavail(opVal)) parts.push(self._opPillHTML(opVal));
+          if (door  && !isUnavail(door))  parts.push(self._doorIconHTML(door) + ' ' + stateLabel(door));
+          if (!parts.length && ago)       parts.push(ago);
         } else {
           if (a.mode_entity) { const mv = stateVal(hass, a.mode_entity); if (mv && !isUnavail(mv)) parts.push(stateLabel(mv)); }
           if (!parts.length && ago) parts.push(ago);
         }
-        subEl.textContent = parts.join(' · ');
+        subEl.innerHTML = parts.join('');
       }
 
-      // Temp arc gauge (oven uses oven_temp_entity, generic uses temp_entity)
+      // Strip values — update each strip-val by position
+      const stripItems = tile.querySelectorAll('.kc-appl-strip-item');
+      if (stripItems.length) {
+        if (type === 'oven') {
+          const spVal  = a.oven_setpoint_entity ? stateNum(hass, a.oven_setpoint_entity) : null;
+          const prog   = stateVal(hass, a.oven_active_program_entity);
+          const prgPct = a.oven_prog_progress_entity ? stateNum(hass, a.oven_prog_progress_entity) : null;
+          const finish = stateVal(hass, a.oven_prog_finish_entity);
+          const remote = stateVal(hass, a.oven_remote_entity);
+          const vals   = [];
+          if (a.oven_setpoint_entity)       vals.push(spVal > 0 ? Math.round(spVal) + '°C' : '—');
+          if (a.oven_active_program_entity) vals.push(prog && !isUnavail(prog) ? stateLabel(prog) : '—');
+          if (a.oven_prog_progress_entity)  vals.push(prgPct > 0 ? Math.round(prgPct) + '%' : '—');
+          if (a.oven_prog_finish_entity)    vals.push(finish && !isUnavail(finish) ? stateLabel(finish) : '—');
+          if (a.oven_remote_entity)         vals.push(null); // handled separately below
+          stripItems.forEach(function(item, idx) {
+            const v = vals[idx];
+            if (v === null) {
+              const valEl = item.querySelector('.kc-appl-strip-val');
+              if (valEl) valEl.innerHTML = self._remoteDotHTML(remote) + (remote && !isUnavail(remote) ? stateLabel(remote) : '—');
+            } else if (v !== undefined) {
+              const valEl = item.querySelector('.kc-appl-strip-val');
+              if (valEl) valEl.textContent = v;
+            }
+          });
+        } else if (type === 'dishwasher') {
+          const prog   = stateVal(hass, a.dw_active_program_entity);
+          const prgPct = a.dw_progress_entity ? stateNum(hass, a.dw_progress_entity) : null;
+          const finish = stateVal(hass, a.dw_finish_entity);
+          const remote = stateVal(hass, a.dw_remote_entity);
+          const vals   = [];
+          if (a.dw_active_program_entity) vals.push(prog && !isUnavail(prog) ? stateLabel(prog) : '—');
+          if (a.dw_progress_entity)       vals.push(prgPct > 0 ? Math.round(prgPct) + '%' : '—');
+          if (a.dw_finish_entity)         vals.push(finish && !isUnavail(finish) ? stateLabel(finish) : '—');
+          if (a.dw_remote_entity)         vals.push(null);
+          stripItems.forEach(function(item, idx) {
+            const v = vals[idx];
+            if (v === null) {
+              const valEl = item.querySelector('.kc-appl-strip-val');
+              if (valEl) valEl.innerHTML = self._remoteDotHTML(remote) + (remote && !isUnavail(remote) ? stateLabel(remote) : '—');
+            } else if (v !== undefined) {
+              const valEl = item.querySelector('.kc-appl-strip-val');
+              if (valEl) valEl.textContent = v;
+            }
+          });
+        }
+      }
+
+      // Progress bar
+      const pb = sr.getElementById('kc-appl-pb-' + i);
+      if (pb) {
+        const prgPct = type === 'oven'
+          ? (a.oven_prog_progress_entity ? stateNum(hass, a.oven_prog_progress_entity) : 0)
+          : (a.dw_progress_entity ? stateNum(hass, a.dw_progress_entity) : 0);
+        pb.style.width = Math.min(100, Math.max(0, prgPct)).toFixed(1) + '%';
+      }
+
+      // Temp arc gauge
       const tempEnt = (type === 'oven') ? a.oven_temp_entity : a.temp_entity;
       if (tempEnt) {
         const tvEl      = sr.getElementById('kc-appl-tv-' + i);
@@ -1231,6 +1365,8 @@ class KitchenCardEditor extends LitElement {
               ['sensor'], 'Program Finish Time (sensor) — optional')}
             ${self._entityPicker(a.oven_prog_progress_entity, (v) => self._updateItem('appliances', i, 'oven_prog_progress_entity', v),
               ['sensor'], 'Program Progress % (sensor) — optional')}
+            ${self._entityPicker(a.oven_remote_entity, (v) => self._updateItem('appliances', i, 'oven_remote_entity', v),
+              ['binary_sensor','sensor'], 'Remote Control (binary_sensor/sensor) — optional')}
           ` : ''}
 
           ${type === 'dishwasher' ? html`
@@ -1265,6 +1401,8 @@ class KitchenCardEditor extends LitElement {
               ['switch','input_boolean'], 'Silence on Demand (switch) — optional')}
             ${self._entityPicker(a.dw_vario_entity, (v) => self._updateItem('appliances', i, 'dw_vario_entity', v),
               ['switch','input_boolean'], 'Vario Speed + (switch) — optional')}
+            ${self._entityPicker(a.dw_remote_entity, (v) => self._updateItem('appliances', i, 'dw_remote_entity', v),
+              ['binary_sensor','sensor'], 'Remote Control (binary_sensor/sensor) — optional')}
           ` : ''}
 
           ${type === 'generic' ? html`
@@ -1358,6 +1496,7 @@ class KitchenCardEditor extends LitElement {
     ];
     return html`
       ${this._txt('Section Label', cfg.label_sensors, (v) => this._set('label_sensors', v), 'Sensors')}
+      ${this._select('Columns', String(cfg.sensors_columns || 1), [{val:'1',label:'1'},{val:'2',label:'2'},{val:'3',label:'3'},{val:'4',label:'4'}], (v) => this._set('sensors_columns', parseInt(v)))}
       ${items.map((s, i) => html`
         <div class="entity-item">
           <div class="entity-item-hd">
