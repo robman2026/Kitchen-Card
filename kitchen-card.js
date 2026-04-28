@@ -15,7 +15,7 @@
  *  6. Sensors — motion, door, illuminance, occupancy etc.
  */
 
-const CARD_VERSION = "1.2.1";
+const CARD_VERSION = "1.2.2";
 
 // ── LitElement bootstrap (same pattern as all robman2026 cards) ──────────────
 const LitElement = Object.getPrototypeOf(customElements.get("ha-panel-lovelace"));
@@ -698,37 +698,46 @@ class KitchenCard extends HTMLElement {
   }
 
   // Builds the active-only controls row for oven/dishwasher.
-  // Only buttons whose entity is 'on' / truthy are shown.
-  // Buttons use data-action="toggle" for switches, data-action="press" for buttons (scenes/scripts).
+  // Toggle switches: shown only when on.
+  // Buttons (stop/pause/resume): shown when the appliance itself is running OR entity is available.
   _controlsRowHTML(a, i) {
-    const hass = this._hass;
-    const type = a.type || 'generic';
-    const sv   = (v) => stateVal(hass, v);
+    const hass    = this._hass;
+    const type    = a.type || 'generic';
+    const sv      = (v) => stateVal(hass, v);
 
-    // Define controls per type: { label, entity, style, isButton }
-    // isButton=true → press service (input_button / script), else toggle
+    // Is the appliance currently running/active?
+    const mainState = sv(a.entity);
+    const applianceOn = isOn(mainState);
+    const opState = type === 'oven'
+      ? (sv(a.oven_operation_entity) || '').toLowerCase()
+      : (sv(a.dw_operation_entity)   || '').toLowerCase();
+    const isRunning = applianceOn ||
+      opState.includes('run') || opState.includes('active') ||
+      opState.includes('heat') || opState.includes('progress');
+
     const defs = type === 'oven' ? [
-      { label: 'Fast Pre-heat', entity: a.oven_fast_preheat_entity, style: 'cb-on' },
-      { label: 'Child Lock',    entity: a.oven_child_lock_entity,   style: 'cb-on' },
-      { label: 'Pause',         entity: a.oven_pause_entity,        style: 'cb-pause', isButton: true },
-      { label: 'Stop',          entity: a.oven_stop_entity,         style: 'cb-stop',  isButton: true },
+      { label: 'Fast Pre-heat', entity: a.oven_fast_preheat_entity, style: 'cb-on',    isButton: false },
+      { label: 'Child Lock',    entity: a.oven_child_lock_entity,   style: 'cb-on',    isButton: false },
+      { label: 'Pause',         entity: a.oven_pause_entity,        style: 'cb-pause', isButton: true  },
+      { label: 'Resume',        entity: a.oven_resume_entity,       style: 'cb-pause', isButton: true  },
+      { label: 'Stop',          entity: a.oven_stop_entity,         style: 'cb-stop',  isButton: true  },
     ] : type === 'dishwasher' ? [
-      { label: 'Extra Dry',     entity: a.dw_extra_dry_entity,      style: 'cb-on' },
-      { label: 'Half Load',     entity: a.dw_half_load_entity,      style: 'cb-on' },
-      { label: 'Hygiene +',     entity: a.dw_hygiene_entity,        style: 'cb-on' },
-      { label: 'Intensive',     entity: a.dw_intensive_entity,      style: 'cb-on' },
-      { label: 'Silence',       entity: a.dw_silence_entity,        style: 'cb-on' },
-      { label: 'Vario Speed',   entity: a.dw_vario_entity,          style: 'cb-on' },
-      { label: 'Stop',          entity: a.dw_stop_entity,           style: 'cb-stop',  isButton: true },
+      { label: 'Extra Dry',   entity: a.dw_extra_dry_entity,  style: 'cb-on',   isButton: false },
+      { label: 'Half Load',   entity: a.dw_half_load_entity,  style: 'cb-on',   isButton: false },
+      { label: 'Hygiene +',   entity: a.dw_hygiene_entity,    style: 'cb-on',   isButton: false },
+      { label: 'Intensive',   entity: a.dw_intensive_entity,  style: 'cb-on',   isButton: false },
+      { label: 'Silence',     entity: a.dw_silence_entity,    style: 'cb-on',   isButton: false },
+      { label: 'Vario Speed', entity: a.dw_vario_entity,      style: 'cb-on',   isButton: false },
+      { label: 'Stop',        entity: a.dw_stop_entity,       style: 'cb-stop', isButton: true  },
     ] : [];
 
     const btns = defs.filter(function(d) {
       if (!d.entity) return false;
       const s = sv(d.entity);
+      // Button/press entities: show whenever appliance is on/running, regardless of entity state
+      if (d.isButton) return isRunning;
+      // Toggle switches: only show when turned on
       if (!s || isUnavail(s)) return false;
-      // For toggle switches: show only if on
-      // For buttons (input_button/script): always show if entity exists and available
-      if (d.isButton) return true;
       return isOn(s);
     });
 
@@ -848,7 +857,6 @@ class KitchenCard extends HTMLElement {
                  : cat === 'door'   ? (on ? 'Open' : 'Closed')
                  : cat === 'light'  ? (on ? 'On'   : 'Off')
                  : cat === 'person' ? (on ? 'Home' : 'Away')
-                 : cat === 'sensor' ? (on ? 'Open' : 'Closed')
                  : stateLabel(state);
 
       const vcls = 'kc-sensor-val' + (motion && motionActive ? ' ksv-motion' : cat === 'door' && on ? ' ksv-open' : on ? ' ksv-on' : !unavail && !on ? ' ksv-off' : '');
@@ -1196,7 +1204,6 @@ class KitchenCard extends HTMLElement {
                  : cat === 'door'   ? (on ? 'Open' : 'Closed')
                  : cat === 'light'  ? (on ? 'On'   : 'Off')
                  : cat === 'person' ? (on ? 'Home' : 'Away')
-                 : cat === 'sensor' ? (on ? 'Open' : 'Closed')
                  : stateLabel(state);
       if (motion) {
         const wrap = tile.querySelector('.kc-sensor-icon-wrap');
