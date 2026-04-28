@@ -15,7 +15,7 @@
  *  6. Sensors — motion, door, illuminance, occupancy etc.
  */
 
-const CARD_VERSION = "1.2.3";
+const CARD_VERSION = "1.3.0";
 
 // ── LitElement bootstrap (same pattern as all robman2026 cards) ──────────────
 const LitElement = Object.getPrototypeOf(customElements.get("ha-panel-lovelace"));
@@ -335,18 +335,20 @@ const CARD_CSS = [
   ".kc-g-name{font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:rgba(255,255,255,.8);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;width:100%;}",
 
   // ── SENSORS ──
-  ".kc-sensor-grid{display:grid;gap:5px;}",".kc-inner.bp-xs .kc-sensor-grid{grid-template-columns:1fr!important;}",
-  ".kc-sensor-tile{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.05);border-radius:9px;padding:7px 10px;display:flex;align-items:center;gap:8px;cursor:pointer;transition:background .15s;min-width:0;}",
-  ".kc-sensor-tile:hover{background:rgba(255,255,255,.06);}",
-  ".kc-sensor-tile.motion-active{background:rgba(255,170,80,.08);border-color:rgba(255,170,80,.22);}",
-  ".kc-sensor-icon-wrap{width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.04);flex-shrink:0;}",
-  ".kc-sensor-icon-wrap.motion-active{background:rgba(255,170,80,.12);animation:kc-motion-pulse 1.4s ease-in-out infinite;}",
+  ".kc-sensor-grid{display:grid;gap:6px;}",".kc-inner.bp-xs .kc-sensor-grid{grid-template-columns:1fr!important;}",
+  ".kc-sensor-tile{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:9px;padding:9px 11px;display:flex;flex-direction:column;gap:5px;cursor:pointer;transition:background .15s;min-width:0;}",
+  ".kc-sensor-tile:hover{background:rgba(255,255,255,.08);}",
+  ".kc-sensor-tile.motion-active{background:rgba(255,170,80,.1);border-color:rgba(255,170,80,.3);}",
+  ".kc-sensor-top{display:flex;align-items:center;gap:7px;min-width:0;}",
+  ".kc-sensor-bot{display:flex;align-items:center;justify-content:space-between;padding-left:29px;min-width:0;}",
+  ".kc-sensor-icon-wrap{width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.07);flex-shrink:0;}",
+  ".kc-sensor-icon-wrap.motion-active{background:rgba(255,170,80,.18);animation:kc-motion-pulse 1.4s ease-in-out infinite;}",
   "@keyframes kc-motion-pulse{0%,100%{box-shadow:0 0 0 0 rgba(255,170,80,.35);}50%{box-shadow:0 0 0 5px rgba(255,170,80,0);}}",
-  ".kc-motion-emoji{font-size:14px;line-height:1;}",
-  ".kc-sensor-name{font-size:10px;font-weight:500;color:rgba(255,255,255,.75);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}",
-  ".kc-sensor-sub{font-size:9px;color:rgba(255,255,255,.35);white-space:nowrap;}",
-  ".kc-sensor-val{font-size:10px;font-weight:600;font-family:monospace;color:rgba(255,255,255,.8);flex-shrink:0;}",
-  ".ksv-on{color:#6dbfff;}.ksv-open{color:#ffd26d;}.ksv-motion{color:#ff8a6d;}.ksv-off{color:rgba(255,255,255,.6);}",
+  ".kc-motion-emoji{font-size:12px;line-height:1;}",
+  ".kc-sensor-name{font-size:10px;font-weight:500;color:rgba(255,255,255,.9);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;}",
+  ".kc-sensor-sub{font-size:9px;color:rgba(255,255,255,.45);white-space:nowrap;flex-shrink:0;}",
+  ".kc-sensor-val{font-size:12px;font-weight:700;font-family:monospace;}",
+  ".ksv-on{color:#6dbfff;}.ksv-open{color:#ffd26d;}.ksv-closed{color:rgba(255,255,255,.75);}.ksv-motion{color:#ff8a6d;}.ksv-clear{color:rgba(255,255,255,.65);}.ksv-off{color:rgba(255,255,255,.7);}.ksv-unavail{color:rgba(255,255,255,.35);}",
 
   // ── RESPONSIVE ──
   ".kc-inner.bp-sm .kc-power-total{flex-direction:column;text-align:center;}",
@@ -927,6 +929,16 @@ class KitchenCard extends HTMLElement {
     const hass = this._hass;
     const sr   = this.shadowRoot;
 
+    // Patch grid columns live (structure change — update style attribute directly)
+    const pGrid = sr.querySelector('.kc-power-grid');
+    if (pGrid) { const pc = Math.max(1,Math.min(4,parseInt(cfg.power_columns)||2)); pGrid.style.gridTemplateColumns='repeat('+pc+',minmax(0,1fr))'; }
+    const sGrid = sr.querySelector('.kc-sensor-grid');
+    if (sGrid) { const sc = Math.max(1,Math.min(4,parseInt(cfg.sensors_columns)||1)); sGrid.style.gridTemplateColumns='repeat('+sc+',minmax(0,1fr))'; }
+    const lGrid = sr.querySelector('.kc-lights-grid');
+    if (lGrid) { const lc = Math.max(1,Math.min(4,parseInt(cfg.lights_columns)||2)); lGrid.style.gridTemplateColumns='repeat('+lc+',minmax(0,1fr))'; }
+    const gGrid = sr.querySelector('.kc-gauge-grid');
+    if (gGrid) { const gc = Math.max(1,Math.min(4,parseInt(cfg.gauges_columns)||2)); gGrid.style.gridTemplateColumns='repeat('+gc+',minmax(0,1fr))'; }
+
     // Status dot
     if (cfg.show_status_dot) {
       const dot = sr.querySelector('.kc-dot');
@@ -1193,25 +1205,36 @@ class KitchenCard extends HTMLElement {
     (cfg.sensors || []).forEach(function(s, i) {
       const tile = sr.querySelector('.kc-sensor-tile[data-idx="' + i + '"]');
       if (!tile) return;
-      const state = stateVal(hass, s.entity);
-      const on    = isOn(state), cat = s.category || 'sensor', unavail = isUnavail(state);
-      const dc    = stateAttr(hass, s.entity, 'device_class') || '';
-      const motion = cat === 'motion' || isMotionSensor(s.entity, dc);
+      const state   = stateVal(hass, s.entity);
+      const on      = isOn(state), cat = s.category || 'sensor', unavail = isUnavail(state);
+      const dc      = stateAttr(hass, s.entity, 'device_class') || '';
+      const motion  = cat === 'motion' || isMotionSensor(s.entity, dc);
+      const isDoor  = cat === 'door' || cat === 'window' || dc === 'door' || dc === 'window' || dc === 'opening';
       const mActive = motion && MOTION_ACTIVE.includes((state || '').toLowerCase());
+
       tile.className = 'kc-sensor-tile' + (motion && mActive ? ' motion-active' : '');
+
       const disp = unavail ? '—'
                  : motion  ? (mActive ? 'Detected' : 'Clear')
-                 : cat === 'door'   ? (on ? 'Open' : 'Closed')
+                 : isDoor  ? (on ? 'Open' : 'Closed')
                  : cat === 'light'  ? (on ? 'On'   : 'Off')
                  : cat === 'person' ? (on ? 'Home' : 'Away')
                  : stateLabel(state);
+
       if (motion) {
         const wrap = tile.querySelector('.kc-sensor-icon-wrap');
         if (wrap) wrap.className = 'kc-sensor-icon-wrap' + (mActive ? ' motion-active' : '');
       }
       const vEl = tile.querySelector('.kc-sensor-val');
       if (vEl) {
-        vEl.className = 'kc-sensor-val' + (motion && mActive ? ' ksv-motion' : cat === 'door' && on ? ' ksv-open' : on ? ' ksv-on' : !unavail && !on ? ' ksv-off' : '');
+        vEl.className = 'kc-sensor-val ' + (
+          unavail              ? 'ksv-unavail' :
+          motion && mActive    ? 'ksv-motion'  :
+          motion && !mActive   ? 'ksv-clear'   :
+          isDoor && on         ? 'ksv-open'    :
+          isDoor && !on        ? 'ksv-closed'  :
+          on                   ? 'ksv-on'      : 'ksv-off'
+        );
         vEl.textContent = disp;
       }
       const subEl = tile.querySelector('.kc-sensor-sub');
