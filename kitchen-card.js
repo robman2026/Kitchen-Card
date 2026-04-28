@@ -848,6 +848,7 @@ class KitchenCard extends HTMLElement {
                  : cat === 'door'   ? (on ? 'Open' : 'Closed')
                  : cat === 'light'  ? (on ? 'On'   : 'Off')
                  : cat === 'person' ? (on ? 'Home' : 'Away')
+                 : cat === 'sensor' ? (on ? 'Open' : 'Closed')
                  : stateLabel(state);
 
       const vcls = 'kc-sensor-val' + (motion && motionActive ? ' ksv-motion' : cat === 'door' && on ? ' ksv-open' : on ? ' ksv-on' : !unavail && !on ? ' ksv-off' : '');
@@ -1195,6 +1196,7 @@ class KitchenCard extends HTMLElement {
                  : cat === 'door'   ? (on ? 'Open' : 'Closed')
                  : cat === 'light'  ? (on ? 'On'   : 'Off')
                  : cat === 'person' ? (on ? 'Home' : 'Away')
+                 : cat === 'sensor' ? (on ? 'Open' : 'Closed')
                  : stateLabel(state);
       if (motion) {
         const wrap = tile.querySelector('.kc-sensor-icon-wrap');
