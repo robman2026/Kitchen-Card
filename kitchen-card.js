@@ -15,7 +15,7 @@
  *  6. Sensors — motion, door, illuminance, occupancy etc.
  */
 
-const CARD_VERSION = "1.3.0";
+const CARD_VERSION = "1.3.1";
 
 // ── LitElement bootstrap (same pattern as all robman2026 cards) ──────────────
 const LitElement = Object.getPrototypeOf(customElements.get("ha-panel-lovelace"));
@@ -64,10 +64,20 @@ function renderIcon(iconName, color, size) {
 // ════════════════════════════════════════════════════════════════════════════
 const MOTION_DC     = ["motion", "occupancy", "presence", "moving"];
 const MOTION_ACTIVE = ["on", "detected", "occupied", "home", "moving"];
+// Device classes that are definitely NOT motion sensors — name matching must not fire for these
+const NON_MOTION_DC = ["illuminance","temperature","humidity","pressure","battery","signal_strength",
+  "voltage","current","power","energy","door","window","opening","lock","sound","vibration",
+  "light","co2","pm25","pm10","gas","moisture","smoke","heat","cold","plug","outlet"];
 
 function isMotionSensor(entityId, deviceClass) {
   if (!entityId) return false;
-  if (MOTION_DC.includes((deviceClass || "").toLowerCase())) return true;
+  const dc = (deviceClass || "").toLowerCase();
+  // If device_class is explicitly set and is a known non-motion class, never treat as motion
+  if (dc && NON_MOTION_DC.includes(dc)) return false;
+  // If device_class is explicitly a motion-type, confirm it
+  if (dc && MOTION_DC.includes(dc)) return true;
+  // Only fall back to name matching when device_class is absent/empty
+  if (dc) return false;
   const id = entityId.toLowerCase();
   return id.includes("motion") || id.includes("presence") || id.includes("occupancy") || id.includes("movement");
 }
@@ -336,18 +346,18 @@ const CARD_CSS = [
 
   // ── SENSORS ──
   ".kc-sensor-grid{display:grid;gap:6px;}",".kc-inner.bp-xs .kc-sensor-grid{grid-template-columns:1fr!important;}",
-  ".kc-sensor-tile{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:9px;padding:9px 11px;display:flex;flex-direction:column;gap:5px;cursor:pointer;transition:background .15s;min-width:0;}",
+  ".kc-sensor-tile{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:9px;padding:9px 11px;display:flex;flex-direction:column;gap:6px;cursor:pointer;transition:background .15s;min-width:0;overflow:hidden;}",
   ".kc-sensor-tile:hover{background:rgba(255,255,255,.08);}",
   ".kc-sensor-tile.motion-active{background:rgba(255,170,80,.1);border-color:rgba(255,170,80,.3);}",
-  ".kc-sensor-top{display:flex;align-items:center;gap:7px;min-width:0;}",
-  ".kc-sensor-bot{display:flex;align-items:center;justify-content:space-between;padding-left:29px;min-width:0;}",
+  ".kc-sensor-top{display:flex;align-items:center;gap:7px;min-width:0;width:100%;}",
+  ".kc-sensor-bot{display:flex;align-items:baseline;justify-content:space-between;min-width:0;width:100%;}",
   ".kc-sensor-icon-wrap{width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.07);flex-shrink:0;}",
   ".kc-sensor-icon-wrap.motion-active{background:rgba(255,170,80,.18);animation:kc-motion-pulse 1.4s ease-in-out infinite;}",
   "@keyframes kc-motion-pulse{0%,100%{box-shadow:0 0 0 0 rgba(255,170,80,.35);}50%{box-shadow:0 0 0 5px rgba(255,170,80,0);}}",
   ".kc-motion-emoji{font-size:12px;line-height:1;}",
   ".kc-sensor-name{font-size:10px;font-weight:500;color:rgba(255,255,255,.9);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;}",
   ".kc-sensor-sub{font-size:9px;color:rgba(255,255,255,.45);white-space:nowrap;flex-shrink:0;}",
-  ".kc-sensor-val{font-size:12px;font-weight:700;font-family:monospace;}",
+  ".kc-sensor-val{font-size:13px;font-weight:700;font-family:monospace;letter-spacing:.02em;}",
   ".ksv-on{color:#6dbfff;}.ksv-open{color:#ffd26d;}.ksv-closed{color:rgba(255,255,255,.75);}.ksv-motion{color:#ff8a6d;}.ksv-clear{color:rgba(255,255,255,.65);}.ksv-off{color:rgba(255,255,255,.7);}.ksv-unavail{color:rgba(255,255,255,.35);}",
 
   // ── RESPONSIVE ──
