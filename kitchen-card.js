@@ -15,7 +15,7 @@
  *  6. Sensors — motion, door, illuminance, occupancy etc.
  */
 
-const CARD_VERSION = "1.3.1";
+const CARD_VERSION = "1.3.2";
 
 // ── LitElement bootstrap (same pattern as all robman2026 cards) ──────────────
 const LitElement = Object.getPrototypeOf(customElements.get("ha-panel-lovelace"));
@@ -861,34 +861,50 @@ class KitchenCard extends HTMLElement {
       const unavail = isUnavail(state);
       const dc      = stateAttr(hass, s.entity, 'device_class') || '';
       const motion  = cat === 'motion' || isMotionSensor(s.entity, dc);
+      const isDoor  = cat === 'door' || cat === 'window' || dc === 'door' || dc === 'window' || dc === 'opening';
       const motionActive = motion && MOTION_ACTIVE.includes((state || '').toLowerCase());
       const ago     = hass && s.entity && hass.states[s.entity] ? agoStr(hass.states[s.entity].last_changed) : '';
 
       const disp = unavail ? '—'
                  : motion  ? (motionActive ? 'Detected' : 'Clear')
-                 : cat === 'door'   ? (on ? 'Open' : 'Closed')
+                 : isDoor  ? (on ? 'Open' : 'Closed')
                  : cat === 'light'  ? (on ? 'On'   : 'Off')
                  : cat === 'person' ? (on ? 'Home' : 'Away')
                  : stateLabel(state);
 
-      const vcls = 'kc-sensor-val' + (motion && motionActive ? ' ksv-motion' : cat === 'door' && on ? ' ksv-open' : on ? ' ksv-on' : !unavail && !on ? ' ksv-off' : '');
+      const vcls = 'kc-sensor-val ' + (
+        unavail                    ? 'ksv-unavail' :
+        motion && motionActive     ? 'ksv-motion'  :
+        motion && !motionActive    ? 'ksv-clear'   :
+        isDoor && on               ? 'ksv-open'    :
+        isDoor && !on              ? 'ksv-closed'  :
+        on                         ? 'ksv-on'      : 'ksv-off'
+      );
 
       let iconHTML;
       if (motion) {
         const wrapCls = 'kc-sensor-icon-wrap' + (motionActive ? ' motion-active' : '');
         iconHTML = '<div class="' + wrapCls + '"><span class="kc-motion-emoji">🚶</span></div>';
       } else {
-        const icolor = cat === 'door' && on ? '#ffd26d' : on ? '#6dbfff' : 'rgba(255,255,255,.4)';
-        const iconKey = { door: 'door', bulb: 'bulb', light: 'bulb', person: 'person', thermometer: 'thermometer', water: 'water' }[cat] || 'sensor';
-        iconHTML = '<div class="kc-sensor-icon-wrap">' + renderIcon(s.icon || iconKey, icolor, 13) + '</div>';
+        const icolor = isDoor && on ? '#ffd26d'
+                     : isDoor       ? 'rgba(255,255,255,.75)'
+                     : on           ? '#6dbfff'
+                     : 'rgba(255,255,255,.7)';
+        const iconKey = isDoor ? 'door' : ({ bulb:'bulb', light:'bulb', person:'person', thermometer:'thermometer', water:'water' }[cat] || 'sensor');
+        iconHTML = '<div class="kc-sensor-icon-wrap">' + renderIcon(s.icon || iconKey, icolor, 12) + '</div>';
       }
 
       const tileCls = 'kc-sensor-tile' + (motion && motionActive ? ' motion-active' : '');
+      // Option B: top row = icon + name, bottom row = value (left) + time (right)
       return '<div class="' + tileCls + '" data-action="more-info" data-entity="' + (s.entity || '') + '" data-idx="' + i + '">' +
-        iconHTML +
-        '<div class="kc-sensor-name">' + (s.label || '—') + '</div>' +
-        '<div class="kc-sensor-sub">' + ago + '</div>' +
-        '<div class="' + vcls + '">' + disp + '</div>' +
+        '<div class="kc-sensor-top">' +
+          iconHTML +
+          '<div class="kc-sensor-name">' + (s.label || '—') + '</div>' +
+        '</div>' +
+        '<div class="kc-sensor-bot">' +
+          '<span class="' + vcls + '">' + disp + '</span>' +
+          '<span class="kc-sensor-sub">' + ago + '</span>' +
+        '</div>' +
       '</div>';
     }).join('');
 
