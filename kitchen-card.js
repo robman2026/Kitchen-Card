@@ -15,7 +15,7 @@
  *  6. Sensors — motion, door, illuminance, occupancy etc.
  */
 
-const CARD_VERSION = "1.3.2";
+const CARD_VERSION = "1.4.0";
 
 // ── LitElement bootstrap (same pattern as all robman2026 cards) ──────────────
 const LitElement = Object.getPrototypeOf(customElements.get("ha-panel-lovelace"));
@@ -268,15 +268,6 @@ const CARD_CSS = [
 
   // ── POWER (featured section) ──
   // Total circuit: large tile, full width
-  ".kc-power-total{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:13px;padding:14px 16px;display:flex;align-items:center;gap:16px;cursor:pointer;transition:background .15s;margin-bottom:9px;}",
-  ".kc-power-total:hover{background:rgba(255,255,255,.06);}",
-  ".kc-power-arc-lg{position:relative;flex-shrink:0;width:68px;height:68px;}",
-  ".kc-power-center-lg{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;}",
-  ".kc-pw-val-lg{font-size:16px;font-weight:700;color:rgba(255,255,255,.9);font-family:monospace;line-height:1;}",
-  ".kc-pw-unit-lg{font-size:9px;color:rgba(255,255,255,.4);font-family:monospace;letter-spacing:.05em;}",
-  ".kc-power-total-info{flex:1;min-width:0;}",
-  ".kc-power-total-name{font-size:13px;font-weight:600;color:rgba(255,255,255,.9);margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}",
-  ".kc-power-total-subs{display:flex;gap:14px;flex-wrap:wrap;}",
   ".kc-pw-sub{display:flex;flex-direction:column;gap:1px;}",
   ".kc-pw-sub-val{font-size:11px;font-weight:600;color:rgba(255,255,255,.8);font-family:monospace;}",
   ".kc-pw-sub-lbl{font-size:8px;color:rgba(255,255,255,.4);letter-spacing:.05em;text-transform:uppercase;}",
@@ -361,8 +352,6 @@ const CARD_CSS = [
   ".ksv-on{color:#6dbfff;}.ksv-open{color:#ffd26d;}.ksv-closed{color:rgba(255,255,255,.75);}.ksv-motion{color:#ff8a6d;}.ksv-clear{color:rgba(255,255,255,.65);}.ksv-off{color:rgba(255,255,255,.7);}.ksv-unavail{color:rgba(255,255,255,.35);}",
 
   // ── RESPONSIVE ──
-  ".kc-inner.bp-sm .kc-power-total{flex-direction:column;text-align:center;}",
-  ".kc-inner.bp-sm .kc-power-total-subs{justify-content:center;}",
   ".kc-inner.bp-xs .kc-power-grid{grid-template-columns:1fr!important;}",
   ".kc-inner.bp-xs .kc-gauge-grid{grid-template-columns:1fr!important;}",
   ".kc-inner.bp-xs .kc-lights-grid{grid-template-columns:repeat(2,1fr)!important;}",
@@ -456,47 +445,17 @@ class KitchenCard extends HTMLElement {
     if (tEl) tEl.textContent = now.toLocaleTimeString(undefined, { hour:'2-digit', minute:'2-digit', second:'2-digit' });
   }
 
-  // ── Power section (Option A: total circuit featured, sub-circuits below) ──
+  // ── Power section — flat equal grid of circuits ──────────────────────────
   _powerHTML() {
     const cfg   = this._config;
     const hass  = this._hass;
     const circs = cfg.power_circuits || [];
     if (!circs.length) return '';
 
-    const total   = circs[0];
-    const subs    = circs.slice(1);
-    const pCols   = Math.max(1, Math.min(4, parseInt(cfg.power_columns) || 2));
-    const maxW    = parseFloat(cfg.power_max_w) || 5000;
+    const pCols = Math.max(1, Math.min(4, parseInt(cfg.power_columns) || 2));
+    const maxW  = parseFloat(cfg.power_max_w) || 5000;
 
-    // ── Total tile (large) ──
-    const tWatts  = stateNum(hass, total.entity);
-    const tMaxW   = parseFloat(total.max_w) || maxW;
-    const tPct    = Math.min(1, Math.max(0, tWatts / tMaxW));
-    const tTh     = parseTh(total.power_thresholds, TH.power);
-    const tColor  = colorFromThresholds(tWatts, tTh);
-    const tEnergy = total.energy_entity  ? stateNum(hass, total.energy_entity).toFixed(2)  : null;
-    const tCurr   = total.current_entity ? stateNum(hass, total.current_entity).toFixed(2) : null;
-    const tSubsHTML =
-      (tEnergy ? '<div class="kc-pw-sub"><div class="kc-pw-sub-val">' + tEnergy + ' kWh</div><div class="kc-pw-sub-lbl">Total Energy</div></div>' : '') +
-      (tCurr   ? '<div class="kc-pw-sub"><div class="kc-pw-sub-val">' + tCurr   + ' A</div><div class="kc-pw-sub-lbl">Current</div></div>'       : '');
-
-    const totalHTML =
-      '<div class="kc-power-total" data-action="more-info" data-entity="' + (total.entity || '') + '" data-idx="kct">' +
-        '<div class="kc-power-arc-lg">' +
-          powerSVG(68, tPct, tColor) +
-          '<div class="kc-power-center-lg">' +
-            '<span class="kc-pw-val-lg" id="kc-pw-tot-v" style="color:' + tColor + '">' + Math.round(tWatts) + '</span>' +
-            '<span class="kc-pw-unit-lg">W</span>' +
-          '</div>' +
-        '</div>' +
-        '<div class="kc-power-total-info">' +
-          '<div class="kc-power-total-name">' + (total.label || 'Kitchen Power') + '</div>' +
-          '<div class="kc-power-total-subs">' + tSubsHTML + '</div>' +
-        '</div>' +
-      '</div>';
-
-    // ── Sub-circuit tiles ──
-    const subHTML = subs.map(function(p, i) {
+    const tilesHTML = circs.map(function(p, i) {
       const watts  = stateNum(hass, p.entity);
       const maxPW  = parseFloat(p.max_w) || maxW;
       const pct    = Math.min(1, Math.max(0, watts / maxPW));
@@ -504,33 +463,28 @@ class KitchenCard extends HTMLElement {
       const pcolor = colorFromThresholds(watts, pTh);
       const energy = p.energy_entity  ? stateNum(hass, p.energy_entity).toFixed(2)  : null;
       const curr   = p.current_entity ? stateNum(hass, p.current_entity).toFixed(2) : null;
-      const subs2  =
-        (energy ? '<div class="kc-pw-sub"><div class="kc-pw-sub-val">' + energy + ' kWh</div><div class="kc-pw-sub-lbl">Energy</div></div>'  : '') +
+      const subsHTML =
+        (energy ? '<div class="kc-pw-sub"><div class="kc-pw-sub-val">' + energy + ' kWh</div><div class="kc-pw-sub-lbl">Energy</div></div>' : '') +
         (curr   ? '<div class="kc-pw-sub"><div class="kc-pw-sub-val">' + curr   + ' A</div><div class="kc-pw-sub-lbl">Current</div></div>' : '');
       return '<div class="kc-power-tile" data-action="more-info" data-entity="' + (p.entity || '') + '" data-idx="' + i + '">' +
         '<div class="kc-power-arc">' +
           powerSVG(52, pct, pcolor) +
           '<div class="kc-power-center">' +
-            '<span class="kc-pw-val" id="kc-pw-sub-v-' + i + '" style="color:' + pcolor + '">' + Math.round(watts) + '</span>' +
+            '<span class="kc-pw-val" id="kc-pw-v-' + i + '" style="color:' + pcolor + '">' + Math.round(watts) + '</span>' +
             '<span class="kc-pw-unit">W</span>' +
           '</div>' +
         '</div>' +
         '<div class="kc-power-info">' +
-          '<div class="kc-power-name">' + (p.label || ('Circuit ' + (i + 2))) + '</div>' +
-          '<div class="kc-power-subs">' + subs2 + '</div>' +
+          '<div class="kc-power-name">' + (p.label || ('Circuit ' + (i + 1))) + '</div>' +
+          '<div class="kc-power-subs">' + subsHTML + '</div>' +
         '</div>' +
       '</div>';
     }).join('');
 
-    const gridHTML = subs.length
-      ? '<div class="kc-power-grid" style="grid-template-columns:repeat(' + pCols + ',minmax(0,1fr))">' + subHTML + '</div>'
-      : '';
-
     return (
       '<div class="kc-divider" style="margin-top:0"></div>' +
       '<div class="kc-sec"><span class="kc-sec-dot" style="background:#e07c4f;box-shadow:0 0 5px #e07c4f"></span>' + (cfg.label_power || 'Power') + '</div>' +
-      totalHTML +
-      gridHTML
+      '<div class="kc-power-grid" style="grid-template-columns:repeat(' + pCols + ',minmax(0,1fr))">' + tilesHTML + '</div>'
     );
   }
 
@@ -976,28 +930,10 @@ class KitchenCard extends HTMLElement {
 
     // Power — total
     const circs = cfg.power_circuits || [];
+    // Power — flat equal circuits
     if (circs.length) {
-      const total  = circs[0];
-      const maxW   = parseFloat(cfg.power_max_w) || 5000;
-      const tWatts = stateNum(hass, total.entity);
-      const tMaxW  = parseFloat(total.max_w) || maxW;
-      const tPct   = Math.min(1, Math.max(0, tWatts / tMaxW));
-      const tTh    = parseTh(total.power_thresholds, TH.power);
-      const tColor = colorFromThresholds(tWatts, tTh);
-      const totTile = sr.querySelector('.kc-power-total');
-      if (totTile) {
-        const vEl = sr.getElementById('kc-pw-tot-v');
-        if (vEl) { vEl.textContent = Math.round(tWatts); vEl.style.color = tColor; }
-        const circles = totTile.querySelectorAll('circle');
-        if (circles.length >= 2) {
-          const r = 68 * 0.38, full = 2 * Math.PI * r, arc = full * 0.75, fill = Math.max(0, Math.min(arc, tPct * arc));
-          circles[1].setAttribute('stroke', tColor);
-          circles[1].setAttribute('stroke-dasharray', fill.toFixed(1) + ' ' + (full - fill).toFixed(1));
-          circles[1].style.filter = 'drop-shadow(0 0 4px ' + tColor + ')';
-        }
-      }
-      // Sub-circuits
-      circs.slice(1).forEach(function(p, i) {
+      const maxW = parseFloat(cfg.power_max_w) || 5000;
+      circs.forEach(function(p, i) {
         const tile = sr.querySelector('.kc-power-tile[data-idx="' + i + '"]');
         if (!tile) return;
         const watts = stateNum(hass, p.entity);
@@ -1005,14 +941,14 @@ class KitchenCard extends HTMLElement {
         const pct   = Math.min(1, Math.max(0, watts / maxPW));
         const pTh   = parseTh(p.power_thresholds, TH.power);
         const pc    = colorFromThresholds(watts, pTh);
-        const vEl2  = sr.getElementById('kc-pw-sub-v-' + i);
-        if (vEl2) { vEl2.textContent = Math.round(watts); vEl2.style.color = pc; }
-        const circles2 = tile.querySelectorAll('circle');
-        if (circles2.length >= 2) {
+        const vEl   = sr.getElementById('kc-pw-v-' + i);
+        if (vEl) { vEl.textContent = Math.round(watts); vEl.style.color = pc; }
+        const circles = tile.querySelectorAll('circle');
+        if (circles.length >= 2) {
           const r = 52 * 0.38, full = 2 * Math.PI * r, arc = full * 0.75, fill = Math.max(0, Math.min(arc, pct * arc));
-          circles2[1].setAttribute('stroke', pc);
-          circles2[1].setAttribute('stroke-dasharray', fill.toFixed(1) + ' ' + (full - fill).toFixed(1));
-          circles2[1].style.filter = 'drop-shadow(0 0 4px ' + pc + ')';
+          circles[1].setAttribute('stroke', pc);
+          circles[1].setAttribute('stroke-dasharray', fill.toFixed(1) + ' ' + (full - fill).toFixed(1));
+          circles[1].style.filter = 'drop-shadow(0 0 4px ' + pc + ')';
         }
       });
     }
@@ -1457,13 +1393,12 @@ class KitchenCardEditor extends LitElement {
     const colOpts = [{ val:'1', label:'1' },{ val:'2', label:'2' },{ val:'3', label:'3' },{ val:'4', label:'4' }];
     return html`
       ${this._txt('Section Label', cfg.label_power, (v) => this._set('label_power', v), 'Power')}
-      <p class="hint">First circuit = featured total gauge. Additional circuits show as sub-tiles below.</p>
       ${this._num('Default Max Watts (all circuits)', cfg.power_max_w, (v) => this._set('power_max_w', parseFloat(v) || 5000), '5000')}
-      ${this._select('Sub-circuit Columns', String(cfg.power_columns || 2), colOpts, (v) => this._set('power_columns', parseInt(v)))}
+      ${this._select('Columns', String(cfg.power_columns || 2), colOpts, (v) => this._set('power_columns', parseInt(v)))}
       ${items.map((p, i) => html`
         <div class="entity-item">
           <div class="entity-item-hd">
-            <span class="entity-item-num">${i === 0 ? '⚡ Total Circuit' : ('Sub-circuit ' + i)}</span>
+            <span class="entity-item-num">⚡ Circuit ${i + 1}</span>
             <button class="btn-remove" @click="${() => self._removeItem('power_circuits', i)}">Remove</button>
           </div>
           ${self._entityPicker(p.entity, (v) => {
@@ -1475,11 +1410,11 @@ class KitchenCardEditor extends LitElement {
           }, ['sensor'], 'Power Entity (W)')}
           ${self._entityPicker(p.energy_entity,  (v) => self._updateItem('power_circuits', i, 'energy_entity',  v), ['sensor'], 'Energy Entity (kWh) — optional')}
           ${self._entityPicker(p.current_entity, (v) => self._updateItem('power_circuits', i, 'current_entity', v), ['sensor'], 'Current Entity (A) — optional')}
-          ${self._txt('Label', p.label, (v) => self._updateItem('power_circuits', i, 'label', v), i === 0 ? 'Kitchen Power' : 'Circuit name')}
+          ${self._txt('Label', p.label, (v) => self._updateItem('power_circuits', i, 'label', v), 'Circuit name')}
           ${self._num('Max Watts (override)', p.max_w, (v) => self._updateItem('power_circuits', i, 'max_w', parseFloat(v) || null), 'leave blank to use default')}
         </div>
       `)}
-      <button class="btn-add" @click="${() => self._addItem('power_circuits', { entity:'', label:'', energy_entity:'', current_entity:'' })}">+ Add Power Circuit</button>
+      <button class="btn-add" @click="${() => self._addItem('power_circuits', { entity:'', label:'', energy_entity:'', current_entity:'' })}">+ Add Circuit</button>
     `;
   }
 
