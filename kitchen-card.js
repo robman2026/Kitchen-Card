@@ -15,7 +15,7 @@
  *  6. Sensors — motion, door, illuminance, occupancy etc.
  */
 
-const CARD_VERSION = "1.5.0";
+const CARD_VERSION = "1.5.1";
 
 // ── LitElement bootstrap (same pattern as all robman2026 cards) ──────────────
 const LitElement = Object.getPrototypeOf(customElements.get("ha-panel-lovelace"));
@@ -791,18 +791,23 @@ class KitchenCard extends HTMLElement {
       const isDim   = tile.dataset.dimmable === '1';
       if (!entity) return;
 
-      let startX = null, startBri = 0, dragging = false, holdTimer = null;
+      let startX = null, startBri = 0, dragging = false, holdTimer = null, longPressed = false;
 
       tile.addEventListener('pointerdown', function(e) {
-        startX   = e.clientX;
-        dragging = false;
+        startX      = e.clientX;
+        dragging    = false;
+        longPressed = false;
         tile.setPointerCapture(e.pointerId);
-        if (isDim) {
-          const hass = self._hass;
-          const rawBri = stateAttr(hass, entity, 'brightness') || 0;
-          startBri = Math.round(rawBri / 2.55);
-          holdTimer = setTimeout(function() { /* hold confirmed — drag ready */ }, 150);
-        }
+        // Read current brightness
+        const rawBri = stateAttr(self._hass, entity, 'brightness') || 0;
+        startBri = Math.round(rawBri / 2.55);
+        // Long press timer — 600ms without dragging opens HA popup
+        holdTimer = setTimeout(function() {
+          if (!dragging) {
+            longPressed = true;
+            self._moreInfo(entity);
+          }
+        }, 600);
       });
 
       tile.addEventListener('pointermove', function(e) {
@@ -810,8 +815,8 @@ class KitchenCard extends HTMLElement {
         const dx = e.clientX - startX;
         if (Math.abs(dx) > 8) {
           dragging = true;
+          clearTimeout(holdTimer); // cancel long press if dragging
           const newBri = Math.max(1, Math.min(100, startBri + Math.round(dx * 0.7)));
-          // Update visuals live
           const fill = self.shadowRoot.getElementById('kc-lt-fill-' + idx);
           const bar  = self.shadowRoot.getElementById('kc-lt-bar-' + idx);
           const sub  = self.shadowRoot.getElementById('kc-lt-sub-' + idx);
@@ -822,9 +827,11 @@ class KitchenCard extends HTMLElement {
         }
       });
 
-      tile.addEventListener('pointerup', function(e) {
+      tile.addEventListener('pointerup', function() {
         clearTimeout(holdTimer);
-        if (dragging && tile._pendingBri !== undefined) {
+        if (longPressed) {
+          // already fired moreInfo — do nothing
+        } else if (dragging && tile._pendingBri !== undefined) {
           // Commit brightness to HA
           if (self._hass) {
             self._hass.callService('light', 'turn_on', {
@@ -837,8 +844,9 @@ class KitchenCard extends HTMLElement {
           // Simple tap — toggle
           self._toggle(entity);
         }
-        startX   = null;
-        dragging = false;
+        startX      = null;
+        dragging    = false;
+        longPressed = false;
       });
 
       tile.addEventListener('pointercancel', function() {
