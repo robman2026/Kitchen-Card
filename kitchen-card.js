@@ -15,7 +15,7 @@
  *  6. Sensors — motion, door, illuminance, occupancy etc.
  */
 
-const CARD_VERSION = "1.4.0";
+const CARD_VERSION = "1.5.0";
 
 // ── LitElement bootstrap (same pattern as all robman2026 cards) ──────────────
 const LitElement = Object.getPrototypeOf(customElements.get("ha-panel-lovelace"));
@@ -311,15 +311,25 @@ const CARD_CSS = [
   ".kc-ctrl-btn-dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0;}",
 
   // ── LIGHTS ──
-  ".kc-lights-grid{display:grid;gap:5px;}",
-  ".kc-light-tile{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.05);border-radius:9px;padding:10px 8px;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;transition:background .15s,border-color .15s,transform .1s;min-width:0;}",
-  ".kc-light-tile:hover{background:rgba(255,255,255,.06);}",
-  ".kc-light-tile:active{transform:scale(.97);}",
-  ".kc-light-tile.lt-on{background:rgba(255,210,109,.07);border-color:rgba(255,210,109,.2);}",
+  ".kc-lights-grid{display:grid;gap:7px;}",
+  ".kc-light-tile{position:relative;border-radius:12px;padding:11px 12px;display:flex;align-items:center;gap:11px;cursor:pointer;overflow:hidden;border:1px solid rgba(255,255,255,.06);transition:border-color .15s;min-width:0;-webkit-user-select:none;user-select:none;touch-action:none;}",
+  ".kc-light-tile.lt-off{background:rgba(255,255,255,.04);}",
+  ".kc-light-tile.lt-on{background:rgba(255,210,109,.04);border-color:rgba(255,210,109,.15);}",
   ".kc-light-tile.lt-unavail{opacity:.35;pointer-events:none;}",
-  ".kc-light-name{font-size:9px;font-weight:500;color:rgba(255,255,255,.75);text-align:center;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%;}",
-  ".kc-light-state{font-size:8px;letter-spacing:.06em;text-transform:uppercase;font-family:monospace;color:rgba(255,255,255,.28);}",
-  ".kc-light-state.ls-on{color:#ffd26d;}",
+  // fill layer (scales with brightness)
+  ".kc-lt-fill{position:absolute;inset:0;pointer-events:none;border-radius:11px;transition:width .12s,opacity .15s;}",
+  ".lt-off .kc-lt-fill{opacity:0;}",
+  // icon circle — dark bg always, icon color changes
+  ".kc-lt-icon{width:38px;height:38px;border-radius:50%;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;flex-shrink:0;z-index:1;}",
+  // text block
+  ".kc-lt-info{flex:1;min-width:0;z-index:1;}",
+  ".kc-lt-name{font-size:13px;font-weight:600;color:rgba(255,255,255,.92);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2;margin-bottom:3px;}",
+  ".lt-on .kc-lt-name{color:#fff;}",
+  ".kc-lt-sub{font-size:11px;color:rgba(255,255,255,.45);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}",
+  ".lt-on .kc-lt-sub{color:rgba(255,210,109,.75);}",
+  // dim bar
+  ".kc-lt-bar-wrap{position:absolute;bottom:0;left:0;right:0;height:3px;background:rgba(255,255,255,.06);z-index:2;}",
+  ".kc-lt-bar{height:3px;border-radius:0;background:rgba(255,210,109,.7);transition:width .1s;}",
 
   // ── CLIMATE GAUGES ──
   ".kc-gauge-grid{display:grid;gap:7px;}",
@@ -739,19 +749,30 @@ class KitchenCard extends HTMLElement {
     const hass  = this._hass;
     const items = cfg.lights || [];
     if (!items.length) return '';
-    const cols  = Math.max(1, Math.min(4, parseInt(cfg.lights_columns) || 2));
+    const cols = Math.max(1, Math.min(4, parseInt(cfg.lights_columns) || 2));
 
     const tilesHTML = items.map(function(lt, i) {
-      const state   = stateVal(hass, lt.entity);
-      const on      = isOn(state), unavail = isUnavail(state);
-      const cls     = 'kc-light-tile' + (unavail ? ' lt-unavail' : on ? ' lt-on' : '');
-      const icolor  = unavail ? 'rgba(255,255,255,.2)' : on ? '#ffd26d' : 'rgba(255,255,255,.38)';
-      const scls    = on ? 'ls-on' : '';
-      const stxt    = unavail ? 'N/A' : (on ? 'On' : 'Off');
-      return '<div class="' + cls + '" data-action="toggle" data-entity="' + (lt.entity || '') + '" data-idx="' + i + '">' +
-        renderIcon(lt.icon || 'bulb', icolor, 18) +
-        '<span class="kc-light-name">' + (lt.label || '—') + '</span>' +
-        '<span class="kc-light-state ' + scls + '">' + stxt + '</span>' +
+      const state    = stateVal(hass, lt.entity);
+      const on       = isOn(state), unavail = isUnavail(state);
+      const domain   = (lt.entity || '').split('.')[0];
+      const isLight  = lt.dimmable || domain === 'light';
+      const bri      = isLight ? Math.round((stateAttr(hass, lt.entity, 'brightness') || 0) / 2.55) : (on ? 100 : 0);
+      const briPct   = Math.max(0, Math.min(100, bri));
+      const cls      = 'kc-light-tile ' + (unavail ? 'lt-unavail' : on ? 'lt-on' : 'lt-off');
+      const icolor   = on ? '#ffd26d' : 'rgba(255,255,255,.5)';
+      const subTxt   = unavail ? 'N/A' : on ? (isLight && briPct < 100 && briPct > 0 ? briPct + '%' : 'On') : 'Off';
+      const fillStyle= on ? 'width:' + briPct + '%;background:rgba(255,180,60,.22)' : 'width:0;background:rgba(255,180,60,.22)';
+      const barHTML  = isLight
+        ? '<div class="kc-lt-bar-wrap"><div class="kc-lt-bar" id="kc-lt-bar-' + i + '" style="width:' + (on ? briPct : 0) + '%"></div></div>'
+        : '';
+      return '<div class="' + cls + '" data-idx="' + i + '" data-entity="' + (lt.entity || '') + '" data-dimmable="' + (isLight ? '1' : '0') + '">' +
+        '<div class="kc-lt-fill" id="kc-lt-fill-' + i + '" style="' + fillStyle + '"></div>' +
+        '<div class="kc-lt-icon">' + renderIcon(lt.icon || 'bulb', icolor, 18) + '</div>' +
+        '<div class="kc-lt-info">' +
+          '<div class="kc-lt-name">' + (lt.label || '—') + '</div>' +
+          '<div class="kc-lt-sub" id="kc-lt-sub-' + i + '">' + subTxt + '</div>' +
+        '</div>' +
+        barHTML +
       '</div>';
     }).join('');
 
@@ -760,6 +781,72 @@ class KitchenCard extends HTMLElement {
       '<div class="kc-sec"><span class="kc-sec-dot" style="background:#ffd26d;box-shadow:0 0 5px #ffd26d"></span>' + (cfg.label_lights || 'Lights') + '</div>' +
       '<div class="kc-lights-grid" style="grid-template-columns:repeat(' + cols + ',minmax(0,1fr))">' + tilesHTML + '</div>'
     );
+  }
+
+  _attachLightListeners() {
+    const self = this;
+    this.shadowRoot.querySelectorAll('.kc-light-tile[data-entity]').forEach(function(tile) {
+      const entity  = tile.dataset.entity;
+      const idx     = parseInt(tile.dataset.idx);
+      const isDim   = tile.dataset.dimmable === '1';
+      if (!entity) return;
+
+      let startX = null, startBri = 0, dragging = false, holdTimer = null;
+
+      tile.addEventListener('pointerdown', function(e) {
+        startX   = e.clientX;
+        dragging = false;
+        tile.setPointerCapture(e.pointerId);
+        if (isDim) {
+          const hass = self._hass;
+          const rawBri = stateAttr(hass, entity, 'brightness') || 0;
+          startBri = Math.round(rawBri / 2.55);
+          holdTimer = setTimeout(function() { /* hold confirmed — drag ready */ }, 150);
+        }
+      });
+
+      tile.addEventListener('pointermove', function(e) {
+        if (startX === null || !isDim) return;
+        const dx = e.clientX - startX;
+        if (Math.abs(dx) > 8) {
+          dragging = true;
+          const newBri = Math.max(1, Math.min(100, startBri + Math.round(dx * 0.7)));
+          // Update visuals live
+          const fill = self.shadowRoot.getElementById('kc-lt-fill-' + idx);
+          const bar  = self.shadowRoot.getElementById('kc-lt-bar-' + idx);
+          const sub  = self.shadowRoot.getElementById('kc-lt-sub-' + idx);
+          if (fill) fill.style.width = newBri + '%';
+          if (bar)  bar.style.width  = newBri + '%';
+          if (sub)  sub.textContent  = newBri + '%';
+          tile._pendingBri = newBri;
+        }
+      });
+
+      tile.addEventListener('pointerup', function(e) {
+        clearTimeout(holdTimer);
+        if (dragging && tile._pendingBri !== undefined) {
+          // Commit brightness to HA
+          if (self._hass) {
+            self._hass.callService('light', 'turn_on', {
+              entity_id: entity,
+              brightness_pct: tile._pendingBri,
+            });
+          }
+          tile._pendingBri = undefined;
+        } else {
+          // Simple tap — toggle
+          self._toggle(entity);
+        }
+        startX   = null;
+        dragging = false;
+      });
+
+      tile.addEventListener('pointercancel', function() {
+        clearTimeout(holdTimer);
+        startX   = null;
+        dragging = false;
+      });
+    });
   }
 
   // ── Climate gauges ────────────────────────────────────────────────────────
@@ -886,6 +973,7 @@ class KitchenCard extends HTMLElement {
   _render() {
     this.shadowRoot.innerHTML = this._buildHTML();
     this._attachListeners();
+    this._attachLightListeners();
     this._startResizeObserver();
     this._built = true;
   }
@@ -1123,14 +1211,29 @@ class KitchenCard extends HTMLElement {
       }
     });
 
-    // Lights
+    // Lights — Bubble Card style with brightness
     (cfg.lights || []).forEach(function(lt, i) {
-      const tile = sr.querySelector('.kc-light-tile[data-idx="' + i + '"]');
+      const tile   = sr.querySelector('.kc-light-tile[data-idx="' + i + '"]');
       if (!tile) return;
-      const state = stateVal(hass, lt.entity), on = isOn(state), unavail = isUnavail(state);
-      tile.className = 'kc-light-tile' + (unavail ? ' lt-unavail' : on ? ' lt-on' : '');
-      const stEl = tile.querySelector('.kc-light-state');
-      if (stEl) { stEl.className = 'kc-light-state' + (on ? ' ls-on' : ''); stEl.textContent = unavail ? 'N/A' : (on ? 'On' : 'Off'); }
+      const state   = stateVal(hass, lt.entity), on = isOn(state), unavail = isUnavail(state);
+      const domain  = (lt.entity || '').split('.')[0];
+      const isLight = lt.dimmable || domain === 'light';
+      const rawBri  = isLight ? (stateAttr(hass, lt.entity, 'brightness') || 0) : (on ? 255 : 0);
+      const briPct  = Math.max(0, Math.min(100, Math.round(rawBri / 2.55)));
+      tile.className = 'kc-light-tile ' + (unavail ? 'lt-unavail' : on ? 'lt-on' : 'lt-off');
+      const fill = sr.getElementById('kc-lt-fill-' + i);
+      const bar  = sr.getElementById('kc-lt-bar-' + i);
+      const sub  = sr.getElementById('kc-lt-sub-' + i);
+      if (fill) fill.style.width = (on ? briPct : 0) + '%';
+      if (bar)  bar.style.width  = (on ? briPct : 0) + '%';
+      if (sub)  sub.textContent  = unavail ? 'N/A' : on ? (isLight && briPct < 100 && briPct > 0 ? briPct + '%' : 'On') : 'Off';
+      // Update icon color
+      const iconEl = tile.querySelector('.kc-lt-icon svg, .kc-lt-icon ha-icon');
+      if (iconEl && iconEl.tagName === 'svg') {
+        iconEl.setAttribute('stroke', on ? '#ffd26d' : 'rgba(255,255,255,.5)');
+      } else if (iconEl) {
+        iconEl.style.color = on ? '#ffd26d' : 'rgba(255,255,255,.5)';
+      }
     });
 
     // Climate gauges
@@ -1572,10 +1675,11 @@ class KitchenCardEditor extends LitElement {
             }
           }, ['light','switch','input_boolean'], 'Entity')}
           ${self._txt('Label', lt.label, (v) => self._updateItem('lights', i, 'label', v), 'Light name')}
+          ${self._toggle('Dimmable (hold + drag to dim)', !!lt.dimmable, (v) => self._updateItem('lights', i, 'dimmable', v))}
           ${self._iconPicker(lt.icon, (v) => self._updateItem('lights', i, 'icon', v), 'mdi:lightbulb')}
         </div>
       `)}
-      <button class="btn-add" @click="${() => self._addItem('lights', { entity:'', label:'', icon:'mdi:lightbulb' })}">+ Add Light</button>
+      <button class="btn-add" @click="${() => self._addItem('lights', { entity:'', label:'', icon:'mdi:lightbulb', dimmable:false })}">+ Add Light</button>
     `;
   }
 
