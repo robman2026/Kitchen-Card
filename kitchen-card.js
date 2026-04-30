@@ -15,7 +15,7 @@
  *  6. Sensors — motion, door, illuminance, occupancy etc.
  */
 
-const CARD_VERSION = "1.5.1";
+const CARD_VERSION = "1.5.2";
 
 // ── LitElement bootstrap (same pattern as all robman2026 cards) ──────────────
 const LitElement = Object.getPrototypeOf(customElements.get("ha-panel-lovelace"));
@@ -673,9 +673,9 @@ class KitchenCard extends HTMLElement {
     '</div>';
   }
 
-  // Builds the active-only controls row for oven/dishwasher.
-  // Toggle switches: shown only when on.
-  // Buttons (stop/pause/resume): shown when the appliance itself is running OR entity is available.
+  // Builds the controls row for oven/dishwasher.
+  // All configured controls (toggles + buttons) show when the appliance is running.
+  // Toggle switches reflect their current on/off state visually but are always shown while running.
   _controlsRowHTML(a, i) {
     const hass    = this._hass;
     const type    = a.type || 'generic';
@@ -710,11 +710,9 @@ class KitchenCard extends HTMLElement {
     const btns = defs.filter(function(d) {
       if (!d.entity) return false;
       const s = sv(d.entity);
-      // Button/press entities: show whenever appliance is on/running, regardless of entity state
-      if (d.isButton) return isRunning;
-      // Toggle switches: only show when turned on
       if (!s || isUnavail(s)) return false;
-      return isOn(s);
+      // Both buttons and toggle switches: show whenever appliance is running
+      return isRunning;
     });
 
     if (!btns.length) return '';
