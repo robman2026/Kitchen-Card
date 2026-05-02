@@ -15,7 +15,7 @@
  *  6. Sensors — motion, door, illuminance, occupancy etc.
  */
 
-const CARD_VERSION = "1.5.2";
+const CARD_VERSION = "1.6.0";
 
 // ── LitElement bootstrap (same pattern as all robman2026 cards) ──────────────
 const LitElement = Object.getPrototypeOf(customElements.get("ha-panel-lovelace"));
@@ -228,6 +228,11 @@ function getStubConfig() {
     // Sensors — binary sensors, numeric, etc.
     sensors:         [],
     sensors_columns: 1,
+
+    // ── Frosted Glass Dark Mode ──────────────────────────────────────────────
+    frosted_glass:   false,
+    frosted_opacity: 0.52,
+    frosted_blur:    22,
   };
 }
 
@@ -365,6 +370,30 @@ const CARD_CSS = [
   ".kc-inner.bp-xs .kc-power-grid{grid-template-columns:1fr!important;}",
   ".kc-inner.bp-xs .kc-gauge-grid{grid-template-columns:1fr!important;}",
   ".kc-inner.bp-xs .kc-lights-grid{grid-template-columns:repeat(2,1fr)!important;}",
+
+  // ── FROSTED GLASS (activated by .kc-frosted on .kc-card) ────────────────
+  // Card shell
+  ".kc-frosted{background:var(--kc-fg-bg,rgba(8,14,30,0.52))!important;backdrop-filter:blur(var(--kc-fg-blur,22px)) saturate(180%)!important;-webkit-backdrop-filter:blur(var(--kc-fg-blur,22px)) saturate(180%)!important;border:1px solid rgba(255,255,255,0.09)!important;box-shadow:0 8px 40px rgba(0,0,0,0.55),inset 0 1px 0 rgba(255,255,255,0.07)!important;}",
+  // Suppress the blob decoration so it doesn't bleed through the glass
+  ".kc-frosted::before{display:none!important;}",
+  // Power tiles
+  ".kc-frosted .kc-power-tile{background:rgba(255,255,255,0.05)!important;backdrop-filter:blur(var(--kc-fg-blur,22px))!important;-webkit-backdrop-filter:blur(var(--kc-fg-blur,22px))!important;border-color:rgba(255,255,255,0.1)!important;}",
+  ".kc-frosted .kc-power-tile:hover{background:rgba(255,255,255,0.09)!important;}",
+  // Appliance tiles
+  ".kc-frosted .kc-appl-tile{background:rgba(255,255,255,0.05)!important;backdrop-filter:blur(var(--kc-fg-blur,22px))!important;-webkit-backdrop-filter:blur(var(--kc-fg-blur,22px))!important;border-color:rgba(255,255,255,0.1)!important;}",
+  ".kc-frosted .kc-appl-tile:hover{background:rgba(255,255,255,0.09)!important;}",
+  ".kc-frosted .kc-appl-tile.appl-active{background:rgba(224,180,79,0.1)!important;border-color:rgba(224,180,79,0.25)!important;}",
+  ".kc-frosted .kc-appl-strip{background:rgba(255,255,255,0.04)!important;}",
+  // Light tiles
+  ".kc-frosted .kc-light-tile.lt-off{background:rgba(255,255,255,0.05)!important;backdrop-filter:blur(var(--kc-fg-blur,22px))!important;-webkit-backdrop-filter:blur(var(--kc-fg-blur,22px))!important;border-color:rgba(255,255,255,0.1)!important;}",
+  ".kc-frosted .kc-light-tile.lt-on{background:rgba(255,210,109,0.08)!important;border-color:rgba(255,210,109,0.2)!important;}",
+  // Climate gauge tiles
+  ".kc-frosted .kc-gauge-tile{background:rgba(255,255,255,0.05)!important;backdrop-filter:blur(var(--kc-fg-blur,22px))!important;-webkit-backdrop-filter:blur(var(--kc-fg-blur,22px))!important;border-color:rgba(255,255,255,0.1)!important;}",
+  ".kc-frosted .kc-gauge-tile:hover{background:rgba(255,255,255,0.09)!important;}",
+  // Sensor tiles
+  ".kc-frosted .kc-sensor-tile{background:rgba(255,255,255,0.05)!important;backdrop-filter:blur(var(--kc-fg-blur,22px))!important;-webkit-backdrop-filter:blur(var(--kc-fg-blur,22px))!important;border-color:rgba(255,255,255,0.1)!important;}",
+  ".kc-frosted .kc-sensor-tile:hover{background:rgba(255,255,255,0.09)!important;}",
+  ".kc-frosted .kc-sensor-tile.motion-active{background:rgba(255,170,80,0.12)!important;border-color:rgba(255,170,80,0.3)!important;}",
 ].join('');
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -965,8 +994,11 @@ class KitchenCard extends HTMLElement {
 
   // ── Full render ───────────────────────────────────────────────────────────
   _buildHTML() {
+    const cfg      = this._config;
+    const isFrosted = !!cfg.frosted_glass;
+    const cardCls  = 'kc-card' + (isFrosted ? ' kc-frosted' : '');
     return '<style>' + CARD_CSS + '</style>' +
-      '<div class="kc-card"><div class="kc-inner">' +
+      '<div class="' + cardCls + '"><div class="kc-inner">' +
         this._headerHTML() +
         this._powerHTML() +
         this._appliancesHTML() +
@@ -976,8 +1008,21 @@ class KitchenCard extends HTMLElement {
       '</div></div>';
   }
 
+  _applyFrostedVars() {
+    const cfg     = this._config;
+    this.style.removeProperty('--kc-fg-bg');
+    this.style.removeProperty('--kc-fg-blur');
+    if (cfg.frosted_glass) {
+      const opacity = Math.min(0.9, Math.max(0.1, parseFloat(cfg.frosted_opacity) || 0.52));
+      const blur    = Math.min(40,  Math.max(4,   parseFloat(cfg.frosted_blur)    || 22));
+      this.style.setProperty('--kc-fg-bg',  'rgba(8,14,30,' + opacity + ')');
+      this.style.setProperty('--kc-fg-blur', blur + 'px');
+    }
+  }
+
   _render() {
     this.shadowRoot.innerHTML = this._buildHTML();
+    this._applyFrostedVars();
     this._attachListeners();
     this._attachLightListeners();
     this._startResizeObserver();
@@ -1466,6 +1511,51 @@ class KitchenCardEditor extends LitElement {
       ></ha-icon-picker>
     </div>`;
   }
+
+  // ── Range slider ──────────────────────────────────────────────────────────
+  _range(label, value, min, max, step, onChange, unit) {
+    const val = parseFloat(value) || 0;
+    const pct = Math.round(((val - min) / (max - min)) * 100);
+    return html`<div class="ed-field">
+      <div class="ed-range-header">
+        <label class="ed-label" style="margin:0">${label}</label>
+        <span class="ed-range-val">${val}${unit || ''}</span>
+      </div>
+      <input class="ed-range" type="range"
+        min="${min}" max="${max}" step="${step}"
+        .value="${String(val)}"
+        style="--range-pct:${pct}%"
+        @input="${(e) => onChange(parseFloat(e.target.value))}" />
+    </div>`;
+  }
+
+  // ── Appearance section ────────────────────────────────────────────────────
+  _appearanceContent() {
+    const cfg = this._config;
+    return html`
+      ${this._toggle('Frosted Glass Mode', cfg.frosted_glass, (v) => this._set('frosted_glass', v))}
+      ${cfg.frosted_glass ? html`
+        <p class="hint">
+          The card background and all inner tiles use a translucent blur effect.
+          Works best when a dynamic wallpaper is visible behind Home Assistant.
+        </p>
+        ${this._range(
+          'Glass Opacity',
+          cfg.frosted_opacity !== undefined ? cfg.frosted_opacity : 0.52,
+          0.1, 0.9, 0.01,
+          (v) => this._set('frosted_opacity', v),
+          ''
+        )}
+        ${this._range(
+          'Blur Strength',
+          cfg.frosted_blur !== undefined ? cfg.frosted_blur : 22,
+          4, 40, 1,
+          (v) => this._set('frosted_blur', v),
+          'px'
+        )}
+      ` : ''}
+    `;
+  }
   _section(id, title, count, content) {
     const open = !!this._openSections[id];
     return html`<div class="ed-section ${open ? 'open' : ''}">
@@ -1766,6 +1856,7 @@ class KitchenCardEditor extends LitElement {
       return html`
         <div class="ed-root">
           ${this._section('header',     '🏠 Header',               undefined,          this._headerContent())}
+          ${this._section('appearance', '🎨 Appearance',            undefined,          this._appearanceContent())}
           ${this._section('power',      '⚡ Power',                counts.power,       this._powerContent())}
           ${this._section('appliances', '🍳 Appliances',           counts.appliances,  this._appliancesContent())}
           ${this._section('lights',     '💡 Lights',              counts.lights,      this._lightsContent())}
@@ -1838,6 +1929,29 @@ class KitchenCardEditor extends LitElement {
       .toggle-slider::before { content: ''; position: absolute; width: 16px; height: 16px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: transform .2s; }
       input:checked + .toggle-slider { background: var(--primary-color, #e07c4f); }
       input:checked + .toggle-slider::before { transform: translateX(18px); }
+
+      /* Range slider */
+      .ed-range-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+      .ed-range-val { font-size: 12px; font-weight: 600; color: var(--primary-color, #e07c4f); font-family: monospace; min-width: 36px; text-align: right; }
+      .ed-range {
+        -webkit-appearance: none;
+        width: 100%; height: 4px; border-radius: 2px; outline: none; cursor: pointer;
+        background: linear-gradient(
+          to right,
+          var(--primary-color, #e07c4f) 0%,
+          var(--primary-color, #e07c4f) var(--range-pct, 50%),
+          rgba(255,255,255,.12) var(--range-pct, 50%),
+          rgba(255,255,255,.12) 100%
+        );
+      }
+      .ed-range::-webkit-slider-thumb {
+        -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%;
+        background: #fff; box-shadow: 0 0 0 3px rgba(224,124,79,.4); cursor: pointer;
+      }
+      .ed-range::-moz-range-thumb {
+        width: 16px; height: 16px; border-radius: 50%; border: none;
+        background: #fff; box-shadow: 0 0 0 3px rgba(224,124,79,.4); cursor: pointer;
+      }
     `;
   }
 }
