@@ -15,7 +15,7 @@
  *  6. Sensors — motion, door, illuminance, occupancy etc.
  */
 
-const CARD_VERSION = "1.6.0";
+const CARD_VERSION = "1.7.0";
 
 // ── LitElement bootstrap (same pattern as all robman2026 cards) ──────────────
 const LitElement = Object.getPrototypeOf(customElements.get("ha-panel-lovelace"));
@@ -229,6 +229,11 @@ function getStubConfig() {
     sensors:         [],
     sensors_columns: 1,
 
+    // Camera feeds
+    cameras:         [],
+    cameras_columns: 1,
+    label_cameras:   'Cameras',
+
     // ── Frosted Glass Dark Mode ──────────────────────────────────────────────
     frosted_glass:   false,
     frosted_opacity: 0.52,
@@ -370,6 +375,16 @@ const CARD_CSS = [
   ".kc-inner.bp-xs .kc-power-grid{grid-template-columns:1fr!important;}",
   ".kc-inner.bp-xs .kc-gauge-grid{grid-template-columns:1fr!important;}",
   ".kc-inner.bp-xs .kc-lights-grid{grid-template-columns:repeat(2,1fr)!important;}",
+
+  // ── CAMERAS ──
+  ".kc-cam-list{display:grid;gap:8px;}",
+  ".kc-cam-tile{border-radius:11px;overflow:hidden;background:#090d1a;border:1px solid rgba(255,255,255,.07);position:relative;cursor:pointer;transition:border-color .2s;min-height:90px;}",
+  ".kc-cam-tile:hover{border-color:rgba(79,163,224,.35);}",
+  "kc-cam-stream{display:block;width:100%;}",
+  ".kc-cam-placeholder{width:100%;min-height:90px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#0d1220,#111827);}",
+  ".kc-cam-label{position:absolute;bottom:0;left:0;right:0;padding:6px 10px;background:linear-gradient(transparent,rgba(0,0,0,.65));font-size:11px;font-weight:500;color:rgba(255,255,255,.9);letter-spacing:.03em;pointer-events:none;}",
+  // Frosted glass: camera tile
+  ".kc-frosted .kc-cam-tile{background:rgba(255,255,255,0.04)!important;border-color:rgba(255,255,255,0.1)!important;}",
 
   // ── FROSTED GLASS (activated by .kc-frosted on .kc-card) ────────────────
   // Card shell
@@ -993,6 +1008,56 @@ class KitchenCard extends HTMLElement {
   }
 
   // ── Full render ───────────────────────────────────────────────────────────
+  // ── Cameras ───────────────────────────────────────────────────────────────
+  _camerasHTML() {
+    const cfg   = this._config;
+    const hass  = this._hass;
+    const items = cfg.cameras || [];
+    if (!items.length) return '';
+    const cols = Math.max(1, Math.min(4, parseInt(cfg.cameras_columns) || 1));
+
+    const tilesHTML = items.map(function(cam, i) {
+      const entity   = cam.entity || '';
+      const stateObj = hass && entity ? hass.states[entity] : null;
+      const inner    = stateObj
+        ? '<kc-cam-stream data-entity="' + entity + '" data-idx="' + i + '"></kc-cam-stream>'
+        : '<div class="kc-cam-placeholder">' + renderIcon('camera', 'rgba(255,255,255,.18)', 32) + '</div>';
+      const label = cam.label ? '<div class="kc-cam-label">' + cam.label + '</div>' : '';
+      return '<div class="kc-cam-tile" data-action="more-info" data-entity="' + entity + '" data-idx="cam-' + i + '">' +
+        inner + label +
+      '</div>';
+    }).join('');
+
+    return (
+      '<div class="kc-divider"></div>' +
+      '<div class="kc-sec"><span class="kc-sec-dot" style="background:#4fa3e0;box-shadow:0 0 5px #4fa3e0"></span>' + (cfg.label_cameras || 'Cameras') + '</div>' +
+      '<div class="kc-cam-list" style="grid-template-columns:repeat(' + cols + ',minmax(0,1fr))">' + tilesHTML + '</div>'
+    );
+  }
+
+  _initStreams() {
+    if (!this._hass) return;
+    const cfg = this._config, hass = this._hass, sr = this.shadowRoot;
+    const doInit = function() {
+      sr.querySelectorAll('kc-cam-stream').forEach(function(el) {
+        const idx      = parseInt(el.dataset.idx);
+        const cam      = (cfg.cameras || [])[idx] || {};
+        const entityId = el.dataset.entity || cam.entity || '';
+        const stateObj = hass.states[entityId];
+        if (!stateObj) return;
+        el.hass     = hass;
+        el.stateObj = stateObj;
+        el.label    = cam.label || entityId;
+        el.entityId = entityId;
+      });
+    };
+    if (customElements.get('kc-cam-stream')) {
+      setTimeout(doInit, 50);
+    } else {
+      customElements.whenDefined('kc-cam-stream').then(function() { setTimeout(doInit, 50); });
+    }
+  }
+
   _buildHTML() {
     const cfg      = this._config;
     const isFrosted = !!cfg.frosted_glass;
@@ -1002,6 +1067,7 @@ class KitchenCard extends HTMLElement {
         this._headerHTML() +
         this._powerHTML() +
         this._appliancesHTML() +
+        this._camerasHTML() +
         this._lightsHTML() +
         this._climateHTML() +
         this._sensorsHTML() +
@@ -1025,6 +1091,7 @@ class KitchenCard extends HTMLElement {
     this._applyFrostedVars();
     this._attachListeners();
     this._attachLightListeners();
+    this._initStreams();
     this._startResizeObserver();
     this._built = true;
   }
@@ -1057,8 +1124,11 @@ class KitchenCard extends HTMLElement {
     if (lGrid) { const lc = Math.max(1,Math.min(4,parseInt(cfg.lights_columns)||2)); lGrid.style.gridTemplateColumns='repeat('+lc+',minmax(0,1fr))'; }
     const gGrid = sr.querySelector('.kc-gauge-grid');
     if (gGrid) { const gc = Math.max(1,Math.min(4,parseInt(cfg.gauges_columns)||2)); gGrid.style.gridTemplateColumns='repeat('+gc+',minmax(0,1fr))'; }
+    const cGrid = sr.querySelector('.kc-cam-list');
+    if (cGrid) { const cc = Math.max(1,Math.min(4,parseInt(cfg.cameras_columns)||1)); cGrid.style.gridTemplateColumns='repeat('+cc+',minmax(0,1fr))'; }
 
-    // Status dot
+    // Refresh camera streams on every hass update
+    this._initStreams();
     if (cfg.show_status_dot) {
       const dot = sr.querySelector('.kc-dot');
       if (dot) {
@@ -1750,6 +1820,34 @@ class KitchenCardEditor extends LitElement {
     `;
   }
 
+  _camerasContent() {
+    const cfg  = this._config, self = this;
+    const items = cfg.cameras || [];
+    const colOpts = [{ val:'1', label:'1' },{ val:'2', label:'2' },{ val:'3', label:'3' },{ val:'4', label:'4' }];
+    return html`
+      ${this._txt('Section Label', cfg.label_cameras, (v) => this._set('label_cameras', v), 'Cameras')}
+      ${this._select('Columns', String(cfg.cameras_columns || 1), colOpts, (v) => this._set('cameras_columns', parseInt(v)))}
+      <p class="hint">Camera feeds update live. Tap a feed to open the full-screen HA camera view.</p>
+      ${items.map((cam, i) => html`
+        <div class="entity-item">
+          <div class="entity-item-hd">
+            <span class="entity-item-num">📷 Camera ${i + 1}</span>
+            <button class="btn-remove" @click="${() => self._removeItem('cameras', i)}">Remove</button>
+          </div>
+          ${self._entityPicker(cam.entity, (v) => {
+            self._updateItem('cameras', i, 'entity', v);
+            if (v && !cam.label) {
+              const fn = stateAttr(self.hass, v, 'friendly_name');
+              if (fn) self._updateItem('cameras', i, 'label', fn);
+            }
+          }, ['camera'], 'Camera Entity')}
+          ${self._txt('Label', cam.label, (v) => self._updateItem('cameras', i, 'label', v), 'Camera name')}
+        </div>
+      `)}
+      <button class="btn-add" @click="${() => self._addItem('cameras', { entity:'', label:'' })}">+ Add Camera</button>
+    `;
+  }
+
   _lightsContent() {
     const cfg  = this._config, self = this;
     const items = cfg.lights || [];
@@ -1849,6 +1947,7 @@ class KitchenCardEditor extends LitElement {
       const counts = {
         power:      (cfg.power_circuits || []).length,
         appliances: (cfg.appliances     || []).length,
+        cameras:    (cfg.cameras        || []).length,
         lights:     (cfg.lights         || []).length,
         gauges:     (cfg.gauges         || []).length,
         sensors:    (cfg.sensors        || []).length,
@@ -1859,6 +1958,7 @@ class KitchenCardEditor extends LitElement {
           ${this._section('appearance', '🎨 Appearance',            undefined,          this._appearanceContent())}
           ${this._section('power',      '⚡ Power',                counts.power,       this._powerContent())}
           ${this._section('appliances', '🍳 Appliances',           counts.appliances,  this._appliancesContent())}
+          ${this._section('cameras',    '📷 Cameras',              counts.cameras,     this._camerasContent())}
           ${this._section('lights',     '💡 Lights',              counts.lights,      this._lightsContent())}
           ${this._section('climate',    '🌡️ Climate Gauges',       counts.gauges,      this._climateContent())}
           ${this._section('sensors',    '📡 Sensors',              counts.sensors,     this._sensorsContent())}
@@ -1957,8 +2057,69 @@ class KitchenCardEditor extends LitElement {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
+// Camera stream sub-element — isolated LitElement to prevent flicker
+// Uses _rcLastStateObj guard (same pattern as room-card / multi-panel-dashboard-card)
+// ════════════════════════════════════════════════════════════════════════════
+class KcCamStream extends LitElement {
+  static get properties() {
+    return { hass: {}, stateObj: {}, label: {}, entityId: {} };
+  }
+
+  _fireMoreInfo() {
+    if (!this.entityId) return;
+    this.dispatchEvent(new CustomEvent('hass-more-info', {
+      bubbles: true, composed: true, detail: { entityId: this.entityId },
+    }));
+  }
+
+  updated(changedProps) {
+    if (!changedProps.has('stateObj') && !changedProps.has('hass')) return;
+    const stream = this.shadowRoot.querySelector('ha-camera-stream');
+    if (!stream) return;
+    // Guard: only update when stateObj or hass actually changed — prevents flicker
+    if (stream._rcLastStateObj === this.stateObj && stream._rcLastHass === this.hass) return;
+    stream._rcLastStateObj = this.stateObj;
+    stream._rcLastHass     = this.hass;
+    stream.hass            = this.hass;
+    stream.stateObj        = this.stateObj;
+    if (typeof stream.requestUpdate === 'function') stream.requestUpdate();
+  }
+
+  render() {
+    if (!this.stateObj) return html``;
+    return html`
+      <div class="stream-wrap" @click="${() => this._fireMoreInfo()}">
+        <ha-camera-stream allow-exoplayer muted playsinline></ha-camera-stream>
+      </div>`;
+  }
+
+  static get styles() {
+    return css`
+      :host { display: block; }
+      .stream-wrap {
+        position: relative;
+        border-radius: 11px;
+        overflow: hidden;
+        background: #0a0e1a;
+        border: 1px solid rgba(255,255,255,.08);
+        min-height: 90px;
+        cursor: pointer;
+      }
+      ha-camera-stream {
+        width: 100%;
+        display: block;
+        max-height: 350px;
+        object-fit: cover;
+        --video-border-radius: 0;
+      }
+    `;
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
 // Register
 // ════════════════════════════════════════════════════════════════════════════
+customElements.define('kc-cam-stream', KcCamStream);
 customElements.define('kitchen-card', KitchenCard);
 customElements.define('kitchen-card-editor', KitchenCardEditor);
 
