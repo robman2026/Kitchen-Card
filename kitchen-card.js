@@ -3,7 +3,7 @@
  * Power-first layout with Appliances, Lights, Climate gauges, and Sensors
  * Author: robman2026
  * GitHub: https://github.com/robman2026/kitchen-card
- * Version: 1.0.0
+ * Version: 2.2.0
  * License: MIT
  *
  * Sections (top → bottom):
@@ -15,7 +15,7 @@
  *  6. Sensors — motion, door, illuminance, occupancy etc.
  */
 
-const CARD_VERSION = "2.1.0";
+const CARD_VERSION = "2.2.0";
 
 // ── LitElement bootstrap (same pattern as all robman2026 cards) ──────────────
 const LitElement = Object.getPrototypeOf(customElements.get("ha-panel-lovelace"));
@@ -358,6 +358,19 @@ const CARD_CSS_CLASSIC = [
   ".kc-inner.bp-xs .kc-power-grid{grid-template-columns:1fr!important;}",
   ".kc-inner.bp-xs .kc-gauge-grid{grid-template-columns:1fr!important;}",
   ".kc-inner.bp-xs .kc-lights-grid{grid-template-columns:repeat(2,1fr)!important;}",
+  // ── POWER MOBILE: compact list row, no arc, thin progress bar ──
+  ".kc-inner.bp-xs .kc-power-tile{padding:8px 12px;gap:0;position:relative;overflow:hidden;flex-direction:column;align-items:stretch;}",
+  ".kc-inner.bp-xs .kc-power-arc{display:none;}",
+  ".kc-inner.bp-xs .kc-power-info{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;margin-bottom:4px;}",
+  ".kc-inner.bp-xs .kc-power-name{font-size:11px;margin-bottom:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;}",
+  ".kc-inner.bp-xs .kc-power-subs{display:none;}",
+  ".kc-power-mobile-right{display:none;}",
+  ".kc-inner.bp-xs .kc-power-mobile-right{display:flex;}",
+  ".kc-pw-mobile-val{font-size:14px;font-weight:700;font-family:monospace;line-height:1;color:rgba(255,255,255,.9);}",
+  ".kc-pw-mobile-unit{font-size:9px;color:rgba(255,255,255,.4);font-family:monospace;margin-left:2px;}",
+  ".kc-pw-bar-wrap{display:none;height:3px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden;width:100%;}",
+  ".kc-inner.bp-xs .kc-pw-bar-wrap{display:block;}",
+  ".kc-pw-bar{height:3px;border-radius:2px;transition:width .4s ease;}",
   ".kc-cam-list{display:grid;gap:8px;}",
   ".kc-cam-tile{border-radius:11px;overflow:hidden;background:#090d1a;border:1px solid rgba(255,255,255,.07);position:relative;cursor:pointer;transition:border-color .2s;min-height:90px;}",
   ".kc-cam-tile:hover{border-color:rgba(79,163,224,.35);}",
@@ -513,6 +526,19 @@ const CARD_CSS_HOLO = [
   ".kc-inner.bp-xs .kc-power-grid{grid-template-columns:1fr!important;}",
   ".kc-inner.bp-xs .kc-gauge-grid{grid-template-columns:1fr!important;}",
   ".kc-inner.bp-xs .kc-lights-grid{grid-template-columns:repeat(2,1fr)!important;}",
+  // ── POWER MOBILE: compact list row, no arc, thin progress bar ──
+  ".kc-inner.bp-xs .kc-power-tile{padding:8px 12px;gap:0;position:relative;overflow:hidden;flex-direction:column;align-items:stretch;}",
+  ".kc-inner.bp-xs .kc-power-arc{display:none;}",
+  ".kc-inner.bp-xs .kc-power-info{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;margin-bottom:4px;}",
+  ".kc-inner.bp-xs .kc-power-name{font-size:11px;margin-bottom:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;}",
+  ".kc-inner.bp-xs .kc-power-subs{display:none;}",
+  ".kc-power-mobile-right{display:none;}",
+  ".kc-inner.bp-xs .kc-power-mobile-right{display:flex;}",
+  ".kc-pw-mobile-val{font-size:14px;font-weight:700;font-family:'Courier New',monospace;line-height:1;color:rgba(0,229,255,.9);}",
+  ".kc-pw-mobile-unit{font-size:9px;color:rgba(0,229,255,.35);font-family:'Courier New',monospace;margin-left:2px;}",
+  ".kc-pw-bar-wrap{display:none;height:3px;background:rgba(0,229,255,.07);border-radius:2px;overflow:hidden;width:100%;}",
+  ".kc-inner.bp-xs .kc-pw-bar-wrap{display:block;}",
+  ".kc-pw-bar{height:3px;border-radius:2px;transition:width .4s ease;}",
   ".kc-cam-list{display:grid;gap:7px;}",
   ".kc-cam-tile{border-radius:3px;overflow:hidden;background:#020810;border:1px solid rgba(0,229,255,.1);position:relative;cursor:pointer;transition:border-color .2s;min-height:90px;}",
   ".kc-cam-tile:hover{border-color:rgba(0,229,255,.3);}",
@@ -719,7 +745,12 @@ class KitchenCard extends HTMLElement {
       const subsHTML =
         (energy ? '<div class="kc-pw-sub"><div class="kc-pw-sub-val">' + energy + ' kWh</div><div class="kc-pw-sub-lbl">Energy</div></div>' : '') +
         (curr   ? '<div class="kc-pw-sub"><div class="kc-pw-sub-val">' + curr   + ' A</div><div class="kc-pw-sub-lbl">Current</div></div>' : '');
+
+      // Mobile progress bar (hidden on desktop via CSS, shown on bp-xs)
+      const barHTML = '<div class="kc-pw-bar-wrap"><div class="kc-pw-bar" style="width:' + Math.min(100, pct * 100).toFixed(1) + '%;background:' + pcolor + ';box-shadow:0 0 4px ' + pcolor + '"></div></div>';
+
       return '<div class="kc-power-tile" data-action="more-info" data-entity="' + (p.entity || '') + '" data-idx="' + i + '">' +
+        // Desktop: arc gauge
         '<div class="kc-power-arc">' +
           powerSVG(52, pct, pcolor) +
           '<div class="kc-power-center">' +
@@ -727,10 +758,18 @@ class KitchenCard extends HTMLElement {
             '<span class="kc-pw-unit">W</span>' +
           '</div>' +
         '</div>' +
+        // Info block — on mobile this becomes the full row content
         '<div class="kc-power-info">' +
           '<div class="kc-power-name">' + (p.label || ('Circuit ' + (i + 1))) + '</div>' +
-          '<div class="kc-power-subs">' + subsHTML + '</div>' +
+          // Mobile-only: watt value + bar (arc is hidden via CSS)
+          '<div class="kc-power-mobile-right" style="display:flex;align-items:center;gap:8px;">' +
+            '<span class="kc-pw-mobile-val" id="kc-pw-mv-' + i + '" style="color:' + pcolor + '">' + Math.round(watts) + '<span class="kc-pw-mobile-unit">W</span></span>' +
+          '</div>' +
         '</div>' +
+        // Desktop subs (kWh, A) — shown below on desktop, hidden on mobile
+        '<div class="kc-power-subs" style="">' + subsHTML + '</div>' +
+        // Mobile progress bar — CSS shows this only on bp-xs
+        barHTML +
       '</div>';
     }).join('');
 
@@ -1359,6 +1398,12 @@ class KitchenCard extends HTMLElement {
         const pc    = colorFromThresholds(watts, pTh);
         const vEl   = sr.getElementById('kc-pw-v-' + i);
         if (vEl) { vEl.textContent = Math.round(watts); vEl.style.color = pc; }
+        // Mobile value
+        const mvEl  = sr.getElementById('kc-pw-mv-' + i);
+        if (mvEl) { mvEl.style.color = pc; mvEl.childNodes[0] && (mvEl.childNodes[0].textContent = Math.round(watts)); }
+        // Mobile bar
+        const barEl = tile.querySelector('.kc-pw-bar');
+        if (barEl) { barEl.style.width = Math.min(100, pct * 100).toFixed(1) + '%'; barEl.style.background = pc; barEl.style.boxShadow = '0 0 4px ' + pc; }
         const circles = tile.querySelectorAll('circle');
         if (circles.length >= 2) {
           const r = 52 * 0.38, full = 2 * Math.PI * r, arc = full * 0.75, fill = Math.max(0, Math.min(arc, pct * arc));
