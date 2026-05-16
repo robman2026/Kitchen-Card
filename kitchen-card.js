@@ -176,6 +176,23 @@ function climateSVG(size, outerPct, outerColor, innerPct, innerColor) {
     '</svg>';
 }
 
+// Half-arc (speedometer) gauge for climate style 'half_arc'
+function halfArcSVG(w, pct, color) {
+  const h  = Math.round(w * 0.58);
+  const cx = w / 2, cy = h - 2, r = Math.min(w * 0.43, cy - 3);
+  const pathLen = Math.PI * r;
+  const filled  = Math.max(0, Math.min(1, pct)) * pathLen;
+  const d = 'M ' + (cx - r).toFixed(1) + ' ' + cy.toFixed(1) +
+            ' A ' + r.toFixed(1) + ' ' + r.toFixed(1) + ' 0 0 1 ' +
+            (cx + r).toFixed(1) + ' ' + cy.toFixed(1);
+  return '<svg width="' + w + '" height="' + h + '" viewBox="0 0 ' + w + ' ' + h + '" style="display:block;overflow:visible">' +
+    '<path d="' + d + '" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="5.5" stroke-linecap="round"/>' +
+    '<path d="' + d + '" fill="none" stroke="' + color + '" stroke-width="5.5" stroke-linecap="round"' +
+      ' stroke-dasharray="' + filled.toFixed(1) + ' ' + (pathLen * 2).toFixed(1) + '"' +
+      ' style="filter:drop-shadow(0 0 5px ' + color + ')"/>' +
+    '</svg>';
+}
+
 // Single-ring appliance temp gauge
 function applTempSVG(size, pct, color) {
   const r  = size * 0.41;
@@ -224,6 +241,7 @@ function getStubConfig() {
     // Climate gauges
     gauges:         [],
     gauges_columns: 2,
+    climate_style:  'rings',  // 'rings' | 'stat' | 'half_arc' | 'bars'
 
     // Sensors — binary sensors, numeric, etc.
     sensors:         [],
@@ -355,6 +373,35 @@ const CARD_CSS_CLASSIC = [
   ".kc-sensor-sub{font-size:9px;color:rgba(255,255,255,.45);white-space:nowrap;flex-shrink:0;}",
   ".kc-sensor-val{font-size:13px;font-weight:700;font-family:monospace;letter-spacing:.02em;}",
   ".ksv-on{color:#6dbfff;}.ksv-open{color:#ffd26d;}.ksv-closed{color:rgba(255,255,255,.75);}.ksv-motion{color:#ff8a6d;}.ksv-clear{color:rgba(255,255,255,.65);}.ksv-off{color:rgba(255,255,255,.7);}.ksv-unavail{color:rgba(255,255,255,.35);}",
+  // ── Climate: stat style ──
+  ".kc-cl-stat-tile{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:12px 14px 0;cursor:pointer;transition:background .15s;min-width:0;overflow:hidden;}",
+  ".kc-cl-stat-tile:hover{background:rgba(255,255,255,.06);}",
+  ".kc-cl-stat-row{display:flex;align-items:center;gap:8px;}",
+  ".kc-cl-stat-item{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}",
+  ".kc-cl-stat-item:last-child{text-align:right;align-items:flex-end;}",
+  ".kc-cl-stat-label{font-size:9px;letter-spacing:.07em;text-transform:uppercase;color:rgba(255,255,255,.4);white-space:nowrap;}",
+  ".kc-cl-stat-val{font-size:22px;font-weight:700;font-family:monospace;line-height:1.1;}",
+  ".kc-cl-stat-sep{width:1px;height:36px;background:rgba(255,255,255,.08);flex-shrink:0;}",
+  ".kc-cl-stat-bar{height:3px;margin-top:10px;border-radius:0 0 12px 12px;opacity:.65;}",
+  ".kc-cl-stat-name{font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:rgba(255,255,255,.45);padding:5px 0 8px;text-align:center;}",
+  // ── Climate: half_arc style ──
+  ".kc-cl-harc-tile{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:10px 8px 8px;cursor:pointer;transition:background .15s;min-width:0;display:flex;flex-direction:column;align-items:center;gap:0;}",
+  ".kc-cl-harc-tile:hover{background:rgba(255,255,255,.06);}",
+  ".kc-cl-harc-svg-wrap{width:90px;display:flex;justify-content:center;overflow:visible;}",
+  ".kc-cl-harc-temp{font-size:20px;font-weight:700;font-family:monospace;margin-top:-2px;line-height:1.1;}",
+  ".kc-cl-harc-hum-row{display:flex;align-items:center;gap:4px;margin-top:5px;}",
+  ".kc-cl-harc-hum-lbl{font-size:8px;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.35);}",
+  ".kc-cl-harc-hum-val{font-size:12px;font-weight:600;font-family:monospace;}",
+  ".kc-cl-harc-name{font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:rgba(255,255,255,.45);margin-top:6px;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;}",
+  // ── Climate: bars style ──
+  ".kc-cl-bar-tile{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:10px 12px;cursor:pointer;transition:background .15s;min-width:0;display:flex;flex-direction:column;gap:7px;}",
+  ".kc-cl-bar-tile:hover{background:rgba(255,255,255,.06);}",
+  ".kc-cl-bar-name{font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:rgba(255,255,255,.45);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}",
+  ".kc-cl-bar-row{display:flex;align-items:center;gap:7px;}",
+  ".kc-cl-bar-icon{font-size:13px;flex-shrink:0;width:18px;text-align:center;}",
+  ".kc-cl-bar-track{flex:1;height:6px;background:rgba(255,255,255,.07);border-radius:3px;overflow:hidden;}",
+  ".kc-cl-bar-fill{height:100%;border-radius:3px;transition:width .4s ease;}",
+  ".kc-cl-bar-val{font-size:12px;font-weight:700;font-family:monospace;flex-shrink:0;min-width:46px;text-align:right;}",
   ".kc-inner.bp-xs .kc-power-grid{grid-template-columns:1fr!important;}",
   ".kc-inner.bp-xs .kc-gauge-grid{grid-template-columns:1fr!important;}",
   ".kc-inner.bp-xs .kc-lights-grid{grid-template-columns:repeat(2,1fr)!important;}",
@@ -523,6 +570,35 @@ const CARD_CSS_HOLO = [
   ".kc-sensor-sub{font-size:8px;color:rgba(0,229,255,.3);white-space:nowrap;flex-shrink:0;font-family:'Courier New',monospace;}",
   ".kc-sensor-val{font-size:12px;font-weight:700;font-family:'Courier New',monospace;letter-spacing:.04em;}",
   ".ksv-on{color:#00e5ff;text-shadow:0 0 6px rgba(0,229,255,.45);}.ksv-open{color:#ffc107;text-shadow:0 0 6px rgba(255,193,7,.35);}.ksv-closed{color:rgba(255,255,255,.6);}.ksv-motion{color:#ffc107;text-shadow:0 0 6px rgba(255,193,7,.45);}.ksv-clear{color:rgba(0,229,255,.5);}.ksv-off{color:rgba(255,255,255,.5);}.ksv-unavail{color:rgba(255,255,255,.2);}",
+  // ── Climate: stat style (holo) ──
+  ".kc-cl-stat-tile{background:rgba(0,10,25,.8);border:1px solid rgba(0,229,255,.1);border-radius:3px;padding:12px 14px 0;cursor:pointer;transition:background .15s,border-color .15s;min-width:0;overflow:hidden;}",
+  ".kc-cl-stat-tile:hover{background:rgba(0,229,255,.03);border-color:rgba(0,229,255,.25);}",
+  ".kc-cl-stat-row{display:flex;align-items:center;gap:8px;}",
+  ".kc-cl-stat-item{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}",
+  ".kc-cl-stat-item:last-child{text-align:right;align-items:flex-end;}",
+  ".kc-cl-stat-label{font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:rgba(0,229,255,.4);white-space:nowrap;font-family:'Courier New',monospace;}",
+  ".kc-cl-stat-val{font-size:22px;font-weight:700;font-family:'Courier New',monospace;line-height:1.1;}",
+  ".kc-cl-stat-sep{width:1px;height:36px;background:rgba(0,229,255,.1);flex-shrink:0;}",
+  ".kc-cl-stat-bar{height:2px;margin-top:10px;opacity:.7;}",
+  ".kc-cl-stat-name{font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:rgba(0,229,255,.4);padding:5px 0 8px;text-align:center;font-family:'Courier New',monospace;}",
+  // ── Climate: half_arc style (holo) ──
+  ".kc-cl-harc-tile{background:rgba(0,10,25,.8);border:1px solid rgba(0,229,255,.1);border-radius:3px;padding:10px 8px 8px;cursor:pointer;transition:background .15s,border-color .15s;min-width:0;display:flex;flex-direction:column;align-items:center;gap:0;}",
+  ".kc-cl-harc-tile:hover{background:rgba(0,229,255,.03);border-color:rgba(0,229,255,.25);}",
+  ".kc-cl-harc-svg-wrap{width:90px;display:flex;justify-content:center;overflow:visible;}",
+  ".kc-cl-harc-temp{font-size:20px;font-weight:700;font-family:'Courier New',monospace;margin-top:-2px;line-height:1.1;}",
+  ".kc-cl-harc-hum-row{display:flex;align-items:center;gap:4px;margin-top:5px;}",
+  ".kc-cl-harc-hum-lbl{font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:rgba(0,229,255,.35);font-family:'Courier New',monospace;}",
+  ".kc-cl-harc-hum-val{font-size:12px;font-weight:600;font-family:'Courier New',monospace;}",
+  ".kc-cl-harc-name{font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:rgba(0,229,255,.4);margin-top:6px;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;font-family:'Courier New',monospace;}",
+  // ── Climate: bars style (holo) ──
+  ".kc-cl-bar-tile{background:rgba(0,10,25,.8);border:1px solid rgba(0,229,255,.1);border-radius:3px;padding:10px 12px;cursor:pointer;transition:background .15s,border-color .15s;min-width:0;display:flex;flex-direction:column;gap:7px;}",
+  ".kc-cl-bar-tile:hover{background:rgba(0,229,255,.03);border-color:rgba(0,229,255,.25);}",
+  ".kc-cl-bar-name{font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:rgba(0,229,255,.4);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:'Courier New',monospace;}",
+  ".kc-cl-bar-row{display:flex;align-items:center;gap:7px;}",
+  ".kc-cl-bar-icon{font-size:13px;flex-shrink:0;width:18px;text-align:center;}",
+  ".kc-cl-bar-track{flex:1;height:5px;background:rgba(0,229,255,.07);border-radius:0;overflow:hidden;}",
+  ".kc-cl-bar-fill{height:100%;border-radius:0;transition:width .4s ease;}",
+  ".kc-cl-bar-val{font-size:12px;font-weight:700;font-family:'Courier New',monospace;flex-shrink:0;min-width:46px;text-align:right;}",
   ".kc-inner.bp-xs .kc-power-grid{grid-template-columns:1fr!important;}",
   ".kc-inner.bp-xs .kc-gauge-grid{grid-template-columns:1fr!important;}",
   ".kc-inner.bp-xs .kc-lights-grid{grid-template-columns:repeat(2,1fr)!important;}",
@@ -1149,10 +1225,10 @@ class KitchenCard extends HTMLElement {
     const hass  = this._hass;
     const items = cfg.gauges || [];
     if (!items.length) return '';
+    const style = cfg.climate_style || 'rings';
     const gCols = Math.max(1, Math.min(4, parseInt(cfg.gauges_columns) || 2));
 
     const tilesHTML = items.map(function(g, i) {
-      const size      = 54;
       const tempVal   = stateNum(hass, g.temp_entity);
       const humVal    = stateNum(hass, g.humidity_entity);
       const tempTh    = parseTh(g.temp_thresholds, TH.temperature);
@@ -1162,8 +1238,63 @@ class KitchenCard extends HTMLElement {
       const tempPct   = Math.min(1, Math.max(0, tempVal / 50));
       const humPct    = Math.min(1, Math.max(0, humVal / 100));
       const tempStr   = g.temp_entity     ? tempVal.toFixed(1) + '°C' : '—';
-      const humStr    = g.humidity_entity ? humVal.toFixed(1)  + '%'  : '—';
-      return '<div class="kc-gauge-tile" data-action="more-info" data-entity="' + (g.temp_entity || '') + '" data-idx="' + i + '">' +
+      const humStr    = g.humidity_entity ? humVal.toFixed(1)  + '%'       : '—';
+      const ent       = g.temp_entity || '';
+      const name      = g.label || ('Sensor ' + (i + 1));
+
+      if (style === 'stat') {
+        return '<div class="kc-cl-stat-tile" data-action="more-info" data-entity="' + ent + '" data-idx="' + i + '">' +
+          '<div class="kc-cl-stat-row">' +
+            '<div class="kc-cl-stat-item">' +
+              '<div class="kc-cl-stat-label">🌡 TEMP</div>' +
+              '<div class="kc-cl-stat-val" id="kc-g-t-' + i + '" style="color:' + tempColor + '">' + tempStr + '</div>' +
+            '</div>' +
+            '<div class="kc-cl-stat-sep"></div>' +
+            '<div class="kc-cl-stat-item">' +
+              '<div class="kc-cl-stat-label">💧 HUM</div>' +
+              '<div class="kc-cl-stat-val" id="kc-g-h-' + i + '" style="color:' + humColor + '">' + humStr + '</div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="kc-cl-stat-bar" id="kc-g-arc-' + i + '" style="background:linear-gradient(90deg,' + tempColor + ' 0%,' + humColor + ' 100%)"></div>' +
+          '<div class="kc-cl-stat-name">' + name + '</div>' +
+        '</div>';
+      }
+
+      if (style === 'half_arc') {
+        return '<div class="kc-cl-harc-tile" data-action="more-info" data-entity="' + ent + '" data-idx="' + i + '">' +
+          '<div class="kc-cl-harc-svg-wrap" id="kc-g-arc-' + i + '">' +
+            halfArcSVG(90, tempPct, tempColor) +
+          '</div>' +
+          '<div class="kc-cl-harc-temp" id="kc-g-t-' + i + '" style="color:' + tempColor + '">' + tempStr + '</div>' +
+          '<div class="kc-cl-harc-hum-row">' +
+            '<span class="kc-cl-harc-hum-lbl">HUM</span>' +
+            '<span class="kc-cl-harc-hum-val" id="kc-g-h-' + i + '" style="color:' + humColor + '">' + humStr + '</span>' +
+          '</div>' +
+          '<div class="kc-cl-harc-name">' + name + '</div>' +
+        '</div>';
+      }
+
+      if (style === 'bars') {
+        const tBarW = (tempPct * 100).toFixed(1);
+        const hBarW = (humPct  * 100).toFixed(1);
+        return '<div class="kc-cl-bar-tile" data-action="more-info" data-entity="' + ent + '" data-idx="' + i + '">' +
+          '<div class="kc-cl-bar-name">' + name + '</div>' +
+          '<div class="kc-cl-bar-row">' +
+            '<span class="kc-cl-bar-icon">🌡</span>' +
+            '<div class="kc-cl-bar-track"><div class="kc-cl-bar-fill" id="kc-g-arc-' + i + '" style="width:' + tBarW + '%;background:' + tempColor + '"></div></div>' +
+            '<span class="kc-cl-bar-val" id="kc-g-t-' + i + '" style="color:' + tempColor + '">' + tempStr + '</span>' +
+          '</div>' +
+          '<div class="kc-cl-bar-row">' +
+            '<span class="kc-cl-bar-icon">💧</span>' +
+            '<div class="kc-cl-bar-track"><div class="kc-cl-bar-fill" id="kc-g-harc-' + i + '" style="width:' + hBarW + '%;background:' + humColor + '"></div></div>' +
+            '<span class="kc-cl-bar-val" id="kc-g-h-' + i + '" style="color:' + humColor + '">' + humStr + '</span>' +
+          '</div>' +
+        '</div>';
+      }
+
+      // Default: rings
+      const size = 54;
+      return '<div class="kc-gauge-tile" data-action="more-info" data-entity="' + ent + '" data-idx="' + i + '">' +
         '<div class="kc-gauge-wrap">' +
           climateSVG(size, tempPct, tempColor, humPct, humColor) +
           '<div class="kc-gauge-center">' +
@@ -1171,7 +1302,7 @@ class KitchenCard extends HTMLElement {
             '<span class="kc-g-sub" id="kc-g-h-' + i + '" style="color:' + humColor  + '">' + humStr  + '</span>' +
           '</div>' +
         '</div>' +
-        '<div class="kc-g-name">' + (g.label || ('Sensor ' + (i + 1))) + '</div>' +
+        '<div class="kc-g-name">' + name + '</div>' +
       '</div>';
     }).join('');
 
@@ -1611,6 +1742,7 @@ class KitchenCard extends HTMLElement {
     });
 
     // Climate gauges
+    const climStyle = cfg.climate_style || 'rings';
     (cfg.gauges || []).forEach(function(g, i) {
       const tEl = sr.getElementById('kc-g-t-' + i);
       const hEl = sr.getElementById('kc-g-h-' + i);
@@ -1624,18 +1756,32 @@ class KitchenCard extends HTMLElement {
       const hPct  = Math.min(1, Math.max(0, hVal / 100));
       if (tEl) { tEl.textContent = g.temp_entity     ? tVal.toFixed(1) + '°C' : '—'; tEl.style.color = tc; }
       if (hEl) { hEl.textContent = g.humidity_entity ? hVal.toFixed(1) + '%'  : '—'; hEl.style.color = hc; }
-      const tile = sr.querySelector('.kc-gauge-tile[data-idx="' + i + '"]');
-      if (tile) {
-        const size = 54;
-        const r1 = size * 0.41, r2 = size * 0.32, c1 = 2 * Math.PI * r1, c2 = 2 * Math.PI * r2;
-        const circles = tile.querySelectorAll('circle');
-        if (circles.length >= 4) {
-          circles[1].setAttribute('stroke', tc);
-          circles[1].setAttribute('stroke-dashoffset', (c1 * (1 - tPct)).toFixed(1));
-          circles[1].style.filter = 'drop-shadow(0 0 4px ' + tc + ')';
-          circles[3].setAttribute('stroke', hc);
-          circles[3].setAttribute('stroke-dashoffset', (c2 * (1 - hPct)).toFixed(1));
-          circles[3].style.filter = 'drop-shadow(0 0 3px ' + hc + ')';
+      if (climStyle === 'half_arc') {
+        const arcWrap = sr.getElementById('kc-g-arc-' + i);
+        if (arcWrap) arcWrap.innerHTML = halfArcSVG(90, tPct, tc);
+      } else if (climStyle === 'bars') {
+        const tBar = sr.getElementById('kc-g-arc-' + i);
+        const hBar = sr.getElementById('kc-g-harc-' + i);
+        if (tBar) { tBar.style.width = (tPct * 100).toFixed(1) + '%'; tBar.style.background = tc; }
+        if (hBar) { hBar.style.width = (hPct * 100).toFixed(1) + '%'; hBar.style.background = hc; }
+      } else if (climStyle === 'stat') {
+        const bar = sr.getElementById('kc-g-arc-' + i);
+        if (bar) bar.style.background = 'linear-gradient(90deg,' + tc + ' 0%,' + hc + ' 100%)';
+      } else {
+        // rings
+        const tile = sr.querySelector('.kc-gauge-tile[data-idx="' + i + '"]');
+        if (tile) {
+          const size = 54;
+          const r1 = size * 0.41, r2 = size * 0.32, c1 = 2 * Math.PI * r1, c2 = 2 * Math.PI * r2;
+          const circles = tile.querySelectorAll('circle');
+          if (circles.length >= 4) {
+            circles[1].setAttribute('stroke', tc);
+            circles[1].setAttribute('stroke-dashoffset', (c1 * (1 - tPct)).toFixed(1));
+            circles[1].style.filter = 'drop-shadow(0 0 4px ' + tc + ')';
+            circles[3].setAttribute('stroke', hc);
+            circles[3].setAttribute('stroke-dashoffset', (c2 * (1 - hPct)).toFixed(1));
+            circles[3].style.filter = 'drop-shadow(0 0 3px ' + hc + ')';
+          }
         }
       }
     });
@@ -2139,9 +2285,16 @@ class KitchenCardEditor extends LitElement {
   _climateContent() {
     const cfg  = this._config, self = this;
     const items = cfg.gauges || [];
-    const colOpts = [{ val:'1', label:'1' },{ val:'2', label:'2' },{ val:'3', label:'3' }];
+    const colOpts   = [{ val:'1', label:'1' },{ val:'2', label:'2' },{ val:'3', label:'3' }];
+    const styleOpts = [
+      { val:'rings',    label:'Rings (concentric)' },
+      { val:'stat',     label:'Stat (big numbers)' },
+      { val:'half_arc', label:'Half Arc (speedometer)' },
+      { val:'bars',     label:'Bar Rows' },
+    ];
     return html`
       ${this._txt('Section Label', cfg.label_climate, (v) => this._set('label_climate', v), 'Climate')}
+      ${this._select('Style', cfg.climate_style || 'rings', styleOpts, (v) => this._set('climate_style', v))}
       ${this._select('Columns', String(cfg.gauges_columns || 2), colOpts, (v) => this._set('gauges_columns', parseInt(v)))}
       ${items.map((g, i) => html`
         <div class="entity-item">
