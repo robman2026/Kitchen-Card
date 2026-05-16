@@ -229,6 +229,7 @@ function getStubConfig() {
     power_circuits: [],
     power_columns:  2,
     power_max_w:    5000,
+    power_style:    'arc',    // 'arc' | 'spark' | 'meter' | 'row'
 
     // Appliances — each can have a state entity + optional temp entity
     appliances:         [],
@@ -418,6 +419,41 @@ const CARD_CSS_CLASSIC = [
   ".kc-pw-bar-wrap{display:none;height:3px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden;width:100%;}",
   ".kc-inner.bp-xs .kc-pw-bar-wrap{display:block;}",
   ".kc-pw-bar{height:3px;border-radius:2px;transition:width .4s ease;}",
+  // ── Power: spark style ──
+  ".kc-pw-spark-tile{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:11px;padding:10px 12px 0;cursor:pointer;transition:background .15s;min-width:0;overflow:hidden;display:flex;flex-direction:column;gap:4px;}",
+  ".kc-pw-spark-tile:hover{background:rgba(255,255,255,.06);}",
+  ".kc-pw-spark-name{font-size:10px;color:rgba(255,255,255,.6);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}",
+  ".kc-pw-spark-main{display:flex;align-items:baseline;justify-content:space-between;gap:6px;}",
+  ".kc-pw-spark-watts{font-size:24px;font-weight:700;font-family:monospace;line-height:1.1;}",
+  ".kc-pw-spark-w-unit{font-size:12px;color:rgba(255,255,255,.4);font-family:monospace;margin-left:1px;}",
+  ".kc-pw-spark-meta{display:flex;flex-direction:column;align-items:flex-end;gap:1px;}",
+  ".kc-pw-spark-meta-val{font-size:11px;font-weight:600;font-family:monospace;color:rgba(255,255,255,.75);}",
+  ".kc-pw-spark-meta-lbl{font-size:8px;color:rgba(255,255,255,.35);letter-spacing:.05em;text-transform:uppercase;}",
+  ".kc-pw-spark-bar-wrap{height:4px;background:rgba(255,255,255,.05);margin:6px -12px 0;overflow:hidden;border-radius:0 0 11px 11px;}",
+  ".kc-pw-spark-bar{height:4px;transition:width .4s ease;}",
+  // ── Power: meter style ──
+  ".kc-pw-meter-tile{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:11px;padding:10px 8px 8px;cursor:pointer;transition:background .15s;min-width:0;display:flex;flex-direction:column;align-items:center;gap:0;}",
+  ".kc-pw-meter-tile:hover{background:rgba(255,255,255,.06);}",
+  ".kc-pw-meter-arc{width:100%;display:flex;justify-content:center;overflow:visible;}",
+  ".kc-pw-meter-watts{font-size:20px;font-weight:700;font-family:monospace;margin-top:-4px;line-height:1.1;}",
+  ".kc-pw-meter-w-unit{font-size:10px;color:rgba(255,255,255,.4);font-family:monospace;margin-top:1px;}",
+  ".kc-pw-meter-divider{width:60%;height:1px;background:rgba(255,255,255,.07);margin:6px 0 4px;}",
+  ".kc-pw-meter-subs{display:flex;flex-direction:column;align-items:center;gap:2px;width:100%;}",
+  ".kc-pw-meter-sub{font-size:11px;font-weight:600;font-family:monospace;color:rgba(255,255,255,.65);}",
+  ".kc-pw-meter-sub-lbl{font-size:8px;color:rgba(255,255,255,.35);letter-spacing:.05em;text-transform:uppercase;}",
+  ".kc-pw-meter-name{font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:rgba(255,255,255,.45);margin-top:5px;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;}",
+  // ── Power: row style ──
+  ".kc-pw-row-tile{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:11px;padding:9px 12px 0;cursor:pointer;transition:background .15s;min-width:0;overflow:hidden;}",
+  ".kc-pw-row-tile:hover{background:rgba(255,255,255,.06);}",
+  ".kc-pw-row-inner{display:flex;align-items:center;gap:10px;flex-wrap:wrap;min-width:0;}",
+  ".kc-pw-row-icon{flex-shrink:0;display:flex;align-items:center;}",
+  ".kc-pw-row-name{font-size:10px;color:rgba(255,255,255,.65);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:60px;}",
+  ".kc-pw-row-metric{display:flex;flex-direction:column;align-items:flex-end;flex-shrink:0;}",
+  ".kc-pw-row-val{font-size:14px;font-weight:700;font-family:monospace;line-height:1.1;}",
+  ".kc-pw-row-lbl{font-size:8px;color:rgba(255,255,255,.35);letter-spacing:.05em;text-transform:uppercase;}",
+  ".kc-pw-row-sep{width:1px;height:28px;background:rgba(255,255,255,.07);flex-shrink:0;}",
+  ".kc-pw-row-bar-wrap{height:3px;background:rgba(255,255,255,.05);margin:7px -12px 0;overflow:hidden;border-radius:0 0 11px 11px;}",
+  ".kc-pw-row-bar{height:3px;transition:width .4s ease;}",
   ".kc-cam-list{display:grid;gap:8px;}",
   ".kc-cam-tile{border-radius:11px;overflow:hidden;background:#090d1a;border:1px solid rgba(255,255,255,.07);position:relative;cursor:pointer;transition:border-color .2s;min-height:90px;}",
   ".kc-cam-tile:hover{border-color:rgba(79,163,224,.35);}",
@@ -615,6 +651,41 @@ const CARD_CSS_HOLO = [
   ".kc-pw-bar-wrap{display:none;height:3px;background:rgba(0,229,255,.07);border-radius:2px;overflow:hidden;width:100%;}",
   ".kc-inner.bp-xs .kc-pw-bar-wrap{display:block;}",
   ".kc-pw-bar{height:3px;border-radius:2px;transition:width .4s ease;}",
+  // ── Power: spark style (holo) ──
+  ".kc-pw-spark-tile{background:rgba(0,10,25,.8);border:1px solid rgba(0,229,255,.1);border-radius:3px;padding:10px 12px 0;cursor:pointer;transition:background .15s,border-color .15s;min-width:0;overflow:hidden;display:flex;flex-direction:column;gap:4px;}",
+  ".kc-pw-spark-tile:hover{background:rgba(0,229,255,.03);border-color:rgba(0,229,255,.25);}",
+  ".kc-pw-spark-name{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.45);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:'Courier New',monospace;}",
+  ".kc-pw-spark-main{display:flex;align-items:baseline;justify-content:space-between;gap:6px;}",
+  ".kc-pw-spark-watts{font-size:24px;font-weight:700;font-family:'Courier New',monospace;line-height:1.1;}",
+  ".kc-pw-spark-w-unit{font-size:12px;color:rgba(0,229,255,.35);font-family:'Courier New',monospace;margin-left:1px;}",
+  ".kc-pw-spark-meta{display:flex;flex-direction:column;align-items:flex-end;gap:1px;}",
+  ".kc-pw-spark-meta-val{font-size:11px;font-weight:600;font-family:'Courier New',monospace;color:rgba(0,229,255,.7);}",
+  ".kc-pw-spark-meta-lbl{font-size:7px;color:rgba(0,229,255,.3);letter-spacing:.08em;text-transform:uppercase;font-family:'Courier New',monospace;}",
+  ".kc-pw-spark-bar-wrap{height:3px;background:rgba(0,229,255,.06);margin:6px -12px 0;overflow:hidden;border-radius:0;}",
+  ".kc-pw-spark-bar{height:3px;transition:width .4s ease;}",
+  // ── Power: meter style (holo) ──
+  ".kc-pw-meter-tile{background:rgba(0,10,25,.8);border:1px solid rgba(0,229,255,.1);border-radius:3px;padding:10px 8px 8px;cursor:pointer;transition:background .15s,border-color .15s;min-width:0;display:flex;flex-direction:column;align-items:center;gap:0;}",
+  ".kc-pw-meter-tile:hover{background:rgba(0,229,255,.03);border-color:rgba(0,229,255,.25);}",
+  ".kc-pw-meter-arc{width:100%;display:flex;justify-content:center;overflow:visible;}",
+  ".kc-pw-meter-watts{font-size:20px;font-weight:700;font-family:'Courier New',monospace;margin-top:-4px;line-height:1.1;}",
+  ".kc-pw-meter-w-unit{font-size:10px;color:rgba(0,229,255,.35);font-family:'Courier New',monospace;margin-top:1px;}",
+  ".kc-pw-meter-divider{width:60%;height:1px;background:rgba(0,229,255,.08);margin:6px 0 4px;}",
+  ".kc-pw-meter-subs{display:flex;flex-direction:column;align-items:center;gap:2px;width:100%;}",
+  ".kc-pw-meter-sub{font-size:11px;font-weight:600;font-family:'Courier New',monospace;color:rgba(0,229,255,.65);}",
+  ".kc-pw-meter-sub-lbl{font-size:7px;color:rgba(0,229,255,.3);letter-spacing:.08em;text-transform:uppercase;font-family:'Courier New',monospace;}",
+  ".kc-pw-meter-name{font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:rgba(0,229,255,.4);margin-top:5px;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;font-family:'Courier New',monospace;}",
+  // ── Power: row style (holo) ──
+  ".kc-pw-row-tile{background:rgba(0,10,25,.8);border:1px solid rgba(0,229,255,.1);border-radius:3px;padding:9px 12px 0;cursor:pointer;transition:background .15s,border-color .15s;min-width:0;overflow:hidden;}",
+  ".kc-pw-row-tile:hover{background:rgba(0,229,255,.03);border-color:rgba(0,229,255,.25);}",
+  ".kc-pw-row-inner{display:flex;align-items:center;gap:10px;flex-wrap:wrap;min-width:0;}",
+  ".kc-pw-row-icon{flex-shrink:0;display:flex;align-items:center;}",
+  ".kc-pw-row-name{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(0,229,255,.5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:60px;font-family:'Courier New',monospace;}",
+  ".kc-pw-row-metric{display:flex;flex-direction:column;align-items:flex-end;flex-shrink:0;}",
+  ".kc-pw-row-val{font-size:14px;font-weight:700;font-family:'Courier New',monospace;line-height:1.1;}",
+  ".kc-pw-row-lbl{font-size:7px;color:rgba(0,229,255,.3);letter-spacing:.08em;text-transform:uppercase;font-family:'Courier New',monospace;}",
+  ".kc-pw-row-sep{width:1px;height:28px;background:rgba(0,229,255,.1);flex-shrink:0;}",
+  ".kc-pw-row-bar-wrap{height:2px;background:rgba(0,229,255,.06);margin:7px -12px 0;overflow:hidden;}",
+  ".kc-pw-row-bar{height:2px;transition:width .4s ease;}",
   ".kc-cam-list{display:grid;gap:7px;}",
   ".kc-cam-tile{border-radius:3px;overflow:hidden;background:#020810;border:1px solid rgba(0,229,255,.1);position:relative;cursor:pointer;transition:border-color .2s;min-height:90px;}",
   ".kc-cam-tile:hover{border-color:rgba(0,229,255,.3);}",
@@ -807,6 +878,7 @@ class KitchenCard extends HTMLElement {
     const circs = cfg.power_circuits || [];
     if (!circs.length) return '';
 
+    const style = cfg.power_style || 'arc';
     const pCols = Math.max(1, Math.min(4, parseInt(cfg.power_columns) || 2));
     const maxW  = parseFloat(cfg.power_max_w) || 5000;
 
@@ -815,36 +887,81 @@ class KitchenCard extends HTMLElement {
       const maxPW  = parseFloat(p.max_w) || maxW;
       const pct    = Math.min(1, Math.max(0, watts / maxPW));
       const pTh    = parseTh(p.power_thresholds, TH.power);
-      const pcolor = colorFromThresholds(watts, pTh);
+      const pc     = colorFromThresholds(watts, pTh);
       const energy = p.energy_entity  ? stateNum(hass, p.energy_entity).toFixed(2)  : null;
       const curr   = p.current_entity ? stateNum(hass, p.current_entity).toFixed(2) : null;
+      const label  = p.label || ('Circuit ' + (i + 1));
+      const ent    = p.entity || '';
+      const barW   = Math.min(100, pct * 100).toFixed(1);
+
+      if (style === 'spark') {
+        const metaHTML =
+          (energy ? '<div class="kc-pw-spark-meta-val" id="kc-pw-e-' + i + '">' + energy + ' kWh</div><div class="kc-pw-spark-meta-lbl">Energy</div>' : '') +
+          (curr   ? '<div class="kc-pw-spark-meta-val" id="kc-pw-c-' + i + '">' + curr   + ' A</div><div class="kc-pw-spark-meta-lbl">Current</div>'  : '');
+        return '<div class="kc-pw-spark-tile" data-action="more-info" data-entity="' + ent + '" data-idx="' + i + '">' +
+          '<div class="kc-pw-spark-name">' + label + '</div>' +
+          '<div class="kc-pw-spark-main">' +
+            '<div style="display:flex;align-items:baseline;gap:2px;">' +
+              '<span class="kc-pw-spark-watts" id="kc-pw-v-' + i + '" style="color:' + pc + '">' + Math.round(watts) + '</span>' +
+              '<span class="kc-pw-spark-w-unit">W</span>' +
+            '</div>' +
+            '<div class="kc-pw-spark-meta">' + metaHTML + '</div>' +
+          '</div>' +
+          '<div class="kc-pw-spark-bar-wrap"><div class="kc-pw-spark-bar" id="kc-pw-bar-' + i + '" style="width:' + barW + '%;background:' + pc + ';box-shadow:0 0 5px ' + pc + '"></div></div>' +
+        '</div>';
+      }
+
+      if (style === 'meter') {
+        const subsHTML =
+          (energy ? '<div style="text-align:center"><div class="kc-pw-meter-sub" id="kc-pw-e-' + i + '">' + energy + ' kWh</div><div class="kc-pw-meter-sub-lbl">Energy</div></div>' : '') +
+          (curr   ? '<div style="text-align:center"><div class="kc-pw-meter-sub" id="kc-pw-c-' + i + '">' + curr   + ' A</div><div class="kc-pw-meter-sub-lbl">Current</div></div>'  : '');
+        return '<div class="kc-pw-meter-tile" data-action="more-info" data-entity="' + ent + '" data-idx="' + i + '">' +
+          '<div class="kc-pw-meter-arc" id="kc-pw-arc-' + i + '">' + halfArcSVG(90, pct, pc) + '</div>' +
+          '<div class="kc-pw-meter-watts" id="kc-pw-v-' + i + '" style="color:' + pc + '">' + Math.round(watts) + '</div>' +
+          '<div class="kc-pw-meter-w-unit">W</div>' +
+          (subsHTML ? '<div class="kc-pw-meter-divider"></div><div class="kc-pw-meter-subs">' + subsHTML + '</div>' : '') +
+          '<div class="kc-pw-meter-name">' + label + '</div>' +
+        '</div>';
+      }
+
+      if (style === 'row') {
+        const metricsHTML =
+          '<div class="kc-pw-row-metric">' +
+            '<span class="kc-pw-row-val" id="kc-pw-v-' + i + '" style="color:' + pc + '">' + Math.round(watts) + ' W</span>' +
+            '<span class="kc-pw-row-lbl">Power</span>' +
+          '</div>' +
+          (energy ? '<div class="kc-pw-row-sep"></div><div class="kc-pw-row-metric"><span class="kc-pw-row-val" id="kc-pw-e-' + i + '">' + energy + ' kWh</span><span class="kc-pw-row-lbl">Energy</span></div>' : '') +
+          (curr   ? '<div class="kc-pw-row-sep"></div><div class="kc-pw-row-metric"><span class="kc-pw-row-val" id="kc-pw-c-' + i + '">' + curr   + ' A</span><span class="kc-pw-row-lbl">Current</span></div>'   : '');
+        return '<div class="kc-pw-row-tile" data-action="more-info" data-entity="' + ent + '" data-idx="' + i + '">' +
+          '<div class="kc-pw-row-inner">' +
+            '<div class="kc-pw-row-icon">' + mdiSVG('bolt', pc, 16) + '</div>' +
+            '<div class="kc-pw-row-name">' + label + '</div>' +
+            metricsHTML +
+          '</div>' +
+          '<div class="kc-pw-row-bar-wrap"><div class="kc-pw-row-bar" id="kc-pw-bar-' + i + '" style="width:' + barW + '%;background:' + pc + ';box-shadow:0 0 4px ' + pc + '"></div></div>' +
+        '</div>';
+      }
+
+      // Default: arc
       const subsHTML =
-        (energy ? '<div class="kc-pw-sub"><div class="kc-pw-sub-val">' + energy + ' kWh</div><div class="kc-pw-sub-lbl">Energy</div></div>' : '') +
-        (curr   ? '<div class="kc-pw-sub"><div class="kc-pw-sub-val">' + curr   + ' A</div><div class="kc-pw-sub-lbl">Current</div></div>' : '');
-
-      // Mobile progress bar (hidden on desktop via CSS, shown on bp-xs)
-      const barHTML = '<div class="kc-pw-bar-wrap"><div class="kc-pw-bar" style="width:' + Math.min(100, pct * 100).toFixed(1) + '%;background:' + pcolor + ';box-shadow:0 0 4px ' + pcolor + '"></div></div>';
-
-      return '<div class="kc-power-tile" data-action="more-info" data-entity="' + (p.entity || '') + '" data-idx="' + i + '">' +
-        // Desktop: arc gauge
+        (energy ? '<div class="kc-pw-sub"><div class="kc-pw-sub-val" id="kc-pw-e-' + i + '">' + energy + ' kWh</div><div class="kc-pw-sub-lbl">Energy</div></div>' : '') +
+        (curr   ? '<div class="kc-pw-sub"><div class="kc-pw-sub-val" id="kc-pw-c-' + i + '">' + curr   + ' A</div><div class="kc-pw-sub-lbl">Current</div></div>'   : '');
+      const barHTML = '<div class="kc-pw-bar-wrap"><div class="kc-pw-bar" id="kc-pw-bar-' + i + '" style="width:' + barW + '%;background:' + pc + ';box-shadow:0 0 4px ' + pc + '"></div></div>';
+      return '<div class="kc-power-tile" data-action="more-info" data-entity="' + ent + '" data-idx="' + i + '">' +
         '<div class="kc-power-arc">' +
-          powerSVG(52, pct, pcolor) +
+          powerSVG(52, pct, pc) +
           '<div class="kc-power-center">' +
-            '<span class="kc-pw-val" id="kc-pw-v-' + i + '" style="color:' + pcolor + '">' + Math.round(watts) + '</span>' +
+            '<span class="kc-pw-val" id="kc-pw-v-' + i + '" style="color:' + pc + '">' + Math.round(watts) + '</span>' +
             '<span class="kc-pw-unit">W</span>' +
           '</div>' +
         '</div>' +
-        // Info block — on mobile this becomes the full row content
         '<div class="kc-power-info">' +
-          '<div class="kc-power-name">' + (p.label || ('Circuit ' + (i + 1))) + '</div>' +
-          // Mobile-only: watt value + bar (arc is hidden via CSS)
+          '<div class="kc-power-name">' + label + '</div>' +
           '<div class="kc-power-mobile-right" style="display:flex;align-items:center;gap:8px;">' +
-            '<span class="kc-pw-mobile-val" id="kc-pw-mv-' + i + '" style="color:' + pcolor + '">' + Math.round(watts) + '<span class="kc-pw-mobile-unit">W</span></span>' +
+            '<span class="kc-pw-mobile-val" id="kc-pw-mv-' + i + '" style="color:' + pc + '">' + Math.round(watts) + '<span class="kc-pw-mobile-unit">W</span></span>' +
           '</div>' +
         '</div>' +
-        // Desktop subs (kWh, A) — shown below on desktop, hidden on mobile
-        '<div class="kc-power-subs" style="">' + subsHTML + '</div>' +
-        // Mobile progress bar — CSS shows this only on bp-xs
+        '<div class="kc-power-subs">' + subsHTML + '</div>' +
         barHTML +
       '</div>';
     }).join('');
@@ -1514,33 +1631,55 @@ class KitchenCard extends HTMLElement {
       }
     }
 
-    // Power — total
+    // Power circuits
     const circs = cfg.power_circuits || [];
-    // Power — flat equal circuits
+    const pwStyle = cfg.power_style || 'arc';
     if (circs.length) {
       const maxW = parseFloat(cfg.power_max_w) || 5000;
       circs.forEach(function(p, i) {
-        const tile = sr.querySelector('.kc-power-tile[data-idx="' + i + '"]');
-        if (!tile) return;
         const watts = stateNum(hass, p.entity);
         const maxPW = parseFloat(p.max_w) || maxW;
         const pct   = Math.min(1, Math.max(0, watts / maxPW));
         const pTh   = parseTh(p.power_thresholds, TH.power);
         const pc    = colorFromThresholds(watts, pTh);
-        const vEl   = sr.getElementById('kc-pw-v-' + i);
-        if (vEl) { vEl.textContent = Math.round(watts); vEl.style.color = pc; }
-        // Mobile value
-        const mvEl  = sr.getElementById('kc-pw-mv-' + i);
-        if (mvEl) { mvEl.style.color = pc; mvEl.childNodes[0] && (mvEl.childNodes[0].textContent = Math.round(watts)); }
-        // Mobile bar
-        const barEl = tile.querySelector('.kc-pw-bar');
-        if (barEl) { barEl.style.width = Math.min(100, pct * 100).toFixed(1) + '%'; barEl.style.background = pc; barEl.style.boxShadow = '0 0 4px ' + pc; }
-        const circles = tile.querySelectorAll('circle');
-        if (circles.length >= 2) {
-          const r = 52 * 0.38, full = 2 * Math.PI * r, arc = full * 0.75, fill = Math.max(0, Math.min(arc, pct * arc));
-          circles[1].setAttribute('stroke', pc);
-          circles[1].setAttribute('stroke-dasharray', fill.toFixed(1) + ' ' + (full - fill).toFixed(1));
-          circles[1].style.filter = 'drop-shadow(0 0 4px ' + pc + ')';
+        const barW  = Math.min(100, pct * 100).toFixed(1) + '%';
+        const energy = p.energy_entity  ? stateNum(hass, p.energy_entity).toFixed(2)  : null;
+        const curr   = p.current_entity ? stateNum(hass, p.current_entity).toFixed(2) : null;
+
+        // Watt value — shared across all styles via same ID
+        const vEl = sr.getElementById('kc-pw-v-' + i);
+        if (vEl) {
+          vEl.style.color = pc;
+          // arc style textContent is digits only; others include ' W' suffix
+          vEl.textContent = pwStyle === 'row' ? Math.round(watts) + ' W' : Math.round(watts);
+        }
+        // Energy / current text
+        const eEl = sr.getElementById('kc-pw-e-' + i);
+        if (eEl && energy) eEl.textContent = energy + ' kWh';
+        const cEl = sr.getElementById('kc-pw-c-' + i);
+        if (cEl && curr) cEl.textContent = curr + ' A';
+
+        if (pwStyle === 'meter') {
+          const arcWrap = sr.getElementById('kc-pw-arc-' + i);
+          if (arcWrap) arcWrap.innerHTML = halfArcSVG(90, pct, pc);
+        } else if (pwStyle === 'spark' || pwStyle === 'row') {
+          const barEl = sr.getElementById('kc-pw-bar-' + i);
+          if (barEl) { barEl.style.width = barW; barEl.style.background = pc; barEl.style.boxShadow = '0 0 5px ' + pc; }
+        } else {
+          // arc style
+          const tile = sr.querySelector('.kc-power-tile[data-idx="' + i + '"]');
+          if (!tile) return;
+          const mvEl = sr.getElementById('kc-pw-mv-' + i);
+          if (mvEl) { mvEl.style.color = pc; mvEl.childNodes[0] && (mvEl.childNodes[0].textContent = Math.round(watts)); }
+          const barEl = tile.querySelector('.kc-pw-bar');
+          if (barEl) { barEl.style.width = barW; barEl.style.background = pc; barEl.style.boxShadow = '0 0 4px ' + pc; }
+          const circles = tile.querySelectorAll('circle');
+          if (circles.length >= 2) {
+            const r = 52 * 0.38, full = 2 * Math.PI * r, arc = full * 0.75, fill = Math.max(0, Math.min(arc, pct * arc));
+            circles[1].setAttribute('stroke', pc);
+            circles[1].setAttribute('stroke-dasharray', fill.toFixed(1) + ' ' + (full - fill).toFixed(1));
+            circles[1].style.filter = 'drop-shadow(0 0 4px ' + pc + ')';
+          }
         }
       });
     }
@@ -2064,9 +2203,16 @@ class KitchenCardEditor extends LitElement {
   _powerContent() {
     const cfg  = this._config, self = this;
     const items = cfg.power_circuits || [];
-    const colOpts = [{ val:'1', label:'1' },{ val:'2', label:'2' },{ val:'3', label:'3' },{ val:'4', label:'4' }];
+    const colOpts   = [{ val:'1', label:'1' },{ val:'2', label:'2' },{ val:'3', label:'3' },{ val:'4', label:'4' }];
+    const styleOpts = [
+      { val:'arc',   label:'Arc gauge (default)' },
+      { val:'spark', label:'Spark (big number + bar)' },
+      { val:'meter', label:'Meter (half-arc + values)' },
+      { val:'row',   label:'Row (all metrics inline)' },
+    ];
     return html`
       ${this._txt('Section Label', cfg.label_power, (v) => this._set('label_power', v), 'Power')}
+      ${this._select('Style', cfg.power_style || 'arc', styleOpts, (v) => this._set('power_style', v))}
       ${this._num('Default Max Watts (all circuits)', cfg.power_max_w, (v) => this._set('power_max_w', parseFloat(v) || 5000), '5000')}
       ${this._select('Columns', String(cfg.power_columns || 2), colOpts, (v) => this._set('power_columns', parseInt(v)))}
       ${items.map((p, i) => html`
