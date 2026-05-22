@@ -294,6 +294,10 @@ const CARD_CSS_CLASSIC = [
   ".kc-card{background:linear-gradient(145deg,#1a1f35,#0f1628,#141929);border-radius:16px;border:1px solid rgba(99,179,237,0.15);box-shadow:0 0 0 1px rgba(255,255,255,0.04),0 8px 32px rgba(0,0,0,0.6),0 0 60px rgba(99,179,237,0.05);padding:18px;position:relative;overflow:hidden;}",
   ".kc-card::before{content:'';position:absolute;width:280px;height:280px;border-radius:50%;top:-100px;right:-60px;background:#e07c4f;filter:blur(80px);opacity:.05;pointer-events:none;}",
   ".kc-inner{width:100%;position:relative;z-index:1;}",
+  ".kc-layout{display:grid;grid-template-columns:1fr 1fr;gap:0 22px;align-items:start;}",
+  ".kc-col-left,.kc-col-right{min-width:0;}",
+  ".kc-inner.bp-sm .kc-layout,.kc-inner.bp-xs .kc-layout{grid-template-columns:1fr;}",
+  ".kc-inner:not(.bp-sm):not(.bp-xs) .kc-col-left>.kc-divider:first-child,.kc-inner:not(.bp-sm):not(.bp-xs) .kc-col-right>.kc-divider:first-child{display:none;}",
   ".kc-header{display:flex;align-items:center;gap:10px;padding-bottom:14px;margin-bottom:14px;border-bottom:1px solid rgba(255,255,255,.05);position:relative;}",
   ".kc-header.pos-left{justify-content:space-between;}",
   ".kc-header.pos-center{justify-content:space-between;}",
@@ -507,6 +511,10 @@ const CARD_CSS_HOLO = [
   ".kc-card::before{content:'';position:absolute;inset:0;pointer-events:none;z-index:0;background-image:linear-gradient(rgba(0,229,255,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(0,229,255,0.03) 1px,transparent 1px);background-size:28px 28px;border-radius:4px;}",
   ".kc-card::after{content:'';position:absolute;inset:0;pointer-events:none;z-index:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.07) 2px,rgba(0,0,0,0.07) 4px);border-radius:4px;}",
   ".kc-inner{width:100%;position:relative;z-index:1;}",
+  ".kc-layout{display:grid;grid-template-columns:1fr 1fr;gap:0 22px;align-items:start;}",
+  ".kc-col-left,.kc-col-right{min-width:0;}",
+  ".kc-inner.bp-sm .kc-layout,.kc-inner.bp-xs .kc-layout{grid-template-columns:1fr;}",
+  ".kc-inner:not(.bp-sm):not(.bp-xs) .kc-col-left>.kc-divider:first-child,.kc-inner:not(.bp-sm):not(.bp-xs) .kc-col-right>.kc-divider:first-child{display:none;}",
   ".kc-header{display:flex;align-items:center;gap:10px;padding-bottom:12px;margin-bottom:12px;border-bottom:1px solid rgba(0,229,255,0.1);position:relative;}",
   ".kc-header.pos-left{justify-content:space-between;}",
   ".kc-header.pos-center{justify-content:space-between;}",
@@ -1573,12 +1581,18 @@ class KitchenCard extends HTMLElement {
     return '<style>' + getCardCSS(cfg.theme) + '</style>' +
       '<div class="' + cardCls + '"><div class="kc-inner">' +
         this._headerHTML() +
-        this._powerHTML() +
-        this._appliancesHTML() +
-        this._camerasHTML() +
-        this._lightsHTML() +
-        this._climateHTML() +
-        this._sensorsHTML() +
+        '<div class="kc-layout">' +
+          '<div class="kc-col-left">' +
+            this._powerHTML() +
+            this._appliancesHTML() +
+            this._camerasHTML() +
+          '</div>' +
+          '<div class="kc-col-right">' +
+            this._lightsHTML() +
+            this._climateHTML() +
+            this._sensorsHTML() +
+          '</div>' +
+        '</div>' +
       '</div></div>';
   }
 
