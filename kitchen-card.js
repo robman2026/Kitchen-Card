@@ -135,6 +135,23 @@ function isOn(s)      { return s === 'on' || s === 'true' || s === 'home' || s =
 function isUnavail(s) { return !s || s === 'unavailable' || s === 'unknown'; }
 function stateLabel(s){ if (!s || isUnavail(s)) return '—'; return s.charAt(0).toUpperCase() + s.slice(1); }
 
+function fmtProgram(s) {
+  if (!s || isUnavail(s)) return '—';
+  return s.replace(/[_\-]+/g, ' ').replace(/\b\w/g, function(c){ return c.toUpperCase(); });
+}
+function fmtFinish(s) {
+  if (!s || isUnavail(s)) return '—';
+  try {
+    const d = new Date(s);
+    if (isNaN(d.getTime())) return s;
+    const dd  = String(d.getDate()).padStart(2, '0');
+    const mo  = String(d.getMonth() + 1).padStart(2, '0');
+    const hh  = String(d.getHours()).padStart(2, '0');
+    const min = String(d.getMinutes()).padStart(2, '0');
+    return dd + '.' + mo + '.' + d.getFullYear() + ' ' + hh + ':' + min;
+  } catch(e) { return s; }
+}
+
 function agoStr(lastChanged) {
   if (!lastChanged) return "";
   const diff = Math.floor((Date.now() - new Date(lastChanged).getTime()) / 1000);
@@ -1087,9 +1104,9 @@ class KitchenCard extends HTMLElement {
       // strip items
       const stripItems = [];
       if (sp !== null)                   stripItems.push(this._stripItem('Setpoint', (sp > 0 ? Math.round(sp) + '°C' : '—')));
-      if (prog)                          stripItems.push(this._stripItem('Program', (isUnavail(prog) ? '—' : stateLabel(prog))));
+      if (prog)                          stripItems.push(this._stripItem('Program', (isUnavail(prog) ? '—' : fmtProgram(prog))));
       if (prgPct !== null)               stripItems.push(this._stripItem('Progress', (prgPct > 0 ? Math.round(prgPct) + '%' : '—')));
-      if (finish)                        stripItems.push(this._stripItem('Finish', (isUnavail(finish) ? '—' : stateLabel(finish))));
+      if (finish)                        stripItems.push(this._stripItem('Finish', (isUnavail(finish) ? '—' : fmtFinish(finish))));
       if (remote)                        stripItems.push(this._stripItem('Remote', this._remoteDotHTML(remote) + (isUnavail(remote) ? '—' : stateLabel(remote))));
 
       if (stripItems.length) {
@@ -1114,9 +1131,9 @@ class KitchenCard extends HTMLElement {
       if (door  && !isUnavail(door))  subParts.push(this._doorIconHTML(door) + ' ' + stateLabel(door));
 
       const stripItems = [];
-      if (prog)                          stripItems.push(this._stripItem('Program', (isUnavail(prog) ? '—' : stateLabel(prog))));
+      if (prog)                          stripItems.push(this._stripItem('Program', (isUnavail(prog) ? '—' : fmtProgram(prog))));
       if (prgPct !== null)               stripItems.push(this._stripItem('Progress', (prgPct > 0 ? Math.round(prgPct) + '%' : '—')));
-      if (finish)                        stripItems.push(this._stripItem('Finish', (isUnavail(finish) ? '—' : stateLabel(finish))));
+      if (finish)                        stripItems.push(this._stripItem('Finish', (isUnavail(finish) ? '—' : fmtFinish(finish))));
       if (remote)                        stripItems.push(this._stripItem('Remote', this._remoteDotHTML(remote) + (isUnavail(remote) ? '—' : stateLabel(remote))));
 
       if (stripItems.length) {
@@ -1737,9 +1754,9 @@ class KitchenCard extends HTMLElement {
           const remote = stateVal(hass, a.oven_remote_entity);
           const vals   = [];
           if (a.oven_setpoint_entity)       vals.push(spVal > 0 ? Math.round(spVal) + '°C' : '—');
-          if (a.oven_active_program_entity) vals.push(prog && !isUnavail(prog) ? stateLabel(prog) : '—');
+          if (a.oven_active_program_entity) vals.push(prog && !isUnavail(prog) ? fmtProgram(prog) : '—');
           if (a.oven_prog_progress_entity)  vals.push(prgPct > 0 ? Math.round(prgPct) + '%' : '—');
-          if (a.oven_prog_finish_entity)    vals.push(finish && !isUnavail(finish) ? stateLabel(finish) : '—');
+          if (a.oven_prog_finish_entity)    vals.push(finish && !isUnavail(finish) ? fmtFinish(finish) : '—');
           if (a.oven_remote_entity)         vals.push(null); // handled separately below
           stripItems.forEach(function(item, idx) {
             const v = vals[idx];
@@ -1757,9 +1774,9 @@ class KitchenCard extends HTMLElement {
           const finish = stateVal(hass, a.dw_finish_entity);
           const remote = stateVal(hass, a.dw_remote_entity);
           const vals   = [];
-          if (a.dw_active_program_entity) vals.push(prog && !isUnavail(prog) ? stateLabel(prog) : '—');
+          if (a.dw_active_program_entity) vals.push(prog && !isUnavail(prog) ? fmtProgram(prog) : '—');
           if (a.dw_progress_entity)       vals.push(prgPct > 0 ? Math.round(prgPct) + '%' : '—');
-          if (a.dw_finish_entity)         vals.push(finish && !isUnavail(finish) ? stateLabel(finish) : '—');
+          if (a.dw_finish_entity)         vals.push(finish && !isUnavail(finish) ? fmtFinish(finish) : '—');
           if (a.dw_remote_entity)         vals.push(null);
           stripItems.forEach(function(item, idx) {
             const v = vals[idx];
