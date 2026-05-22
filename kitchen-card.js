@@ -1529,12 +1529,10 @@ class KitchenCard extends HTMLElement {
     const tilesHTML = items.map(function(cam, i) {
       const entity   = cam.entity || '';
       const stateObj = hass && entity ? hass.states[entity] : null;
-      const inner    = stateObj
-        ? '<kc-cam-stream data-entity="' + entity + '" data-idx="' + i + '"></kc-cam-stream>'
-        : '<div class="kc-cam-placeholder">' + renderIcon('camera', 'rgba(255,255,255,.18)', 32) + '</div>';
       const label = cam.label ? '<div class="kc-cam-label">' + cam.label + '</div>' : '';
       return '<div class="kc-cam-tile" data-action="more-info" data-entity="' + entity + '" data-idx="cam-' + i + '">' +
-        inner + label +
+        '<kc-cam-stream data-entity="' + entity + '" data-idx="' + i + '"></kc-cam-stream>' +
+        label +
       '</div>';
     }).join('');
 
@@ -2661,7 +2659,7 @@ class KcCamStream extends LitElement {
   }
 
   render() {
-    if (!this.stateObj) return html``;
+    if (!this.stateObj) return html`<div class="placeholder"></div>`;
     return html`
       <div class="stream-wrap" @click="${() => this._fireMoreInfo()}">
         <ha-camera-stream allow-exoplayer muted playsinline></ha-camera-stream>
@@ -2671,6 +2669,14 @@ class KcCamStream extends LitElement {
   static get styles() {
     return css`
       :host { display: block; }
+      .placeholder {
+        width: 100%;
+        min-height: 90px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #0d1220, #111827);
+      }
       .stream-wrap {
         position: relative;
         border-radius: 11px;
