@@ -1585,9 +1585,9 @@ class KitchenCard extends HTMLElement {
           '<div class="kc-col-left">' +
             this._powerHTML() +
             this._appliancesHTML() +
-            this._camerasHTML() +
           '</div>' +
           '<div class="kc-col-right">' +
+            this._camerasHTML() +
             this._lightsHTML() +
             this._climateHTML() +
             this._sensorsHTML() +
