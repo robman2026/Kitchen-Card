@@ -15,7 +15,7 @@
  *  6. Sensors — motion, door, illuminance, occupancy etc.
  */
 
-const CARD_VERSION = "2.2.0";
+const CARD_VERSION = "2.3.0";
 
 // ── LitElement bootstrap (same pattern as all robman2026 cards) ──────────────
 const LitElement = Object.getPrototypeOf(customElements.get("ha-panel-lovelace"));
@@ -273,6 +273,12 @@ function getStubConfig() {
     // ── Theme ────────────────────────────────────────────────────────────────
     theme: 'classic',   // 'classic' | 'holo'
 
+    // ── Section layout (drag-and-drop in editor) ─────────────────────────────
+    layout: {
+      left:  ['cameras', 'lights', 'sensors'],
+      right: ['climate', 'power', 'appliances'],
+    },
+
     // ── Frosted Glass Dark Mode ──────────────────────────────────────────────
     frosted_glass:   false,
     frosted_opacity: 0.52,
@@ -367,6 +373,8 @@ const CARD_CSS_CLASSIC = [
   ".lt-on .kc-lt-name{color:#fff;}",
   ".kc-lt-sub{font-size:11px;color:rgba(255,255,255,.45);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}",
   ".lt-on .kc-lt-sub{color:rgba(255,210,109,.75);}",
+  ".kc-lt-subrow{display:flex;align-items:baseline;justify-content:space-between;gap:6px;min-width:0;}",
+  ".kc-lt-ago{font-size:9px;color:rgba(255,255,255,.3);white-space:nowrap;flex-shrink:0;}",
   ".kc-lt-bar-wrap{position:absolute;bottom:0;left:0;right:0;height:3px;background:rgba(255,255,255,.06);z-index:2;}",
   ".kc-lt-bar{height:3px;border-radius:0;background:rgba(255,210,109,.7);transition:width .1s;}",
   ".kc-gauge-grid{display:grid;gap:7px;}",
@@ -603,6 +611,8 @@ const CARD_CSS_HOLO = [
   ".lt-on .kc-lt-name{color:#fff;text-shadow:0 0 8px rgba(0,229,255,.25);}",
   ".kc-lt-sub{font-size:10px;color:rgba(0,229,255,.4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:'Courier New',monospace;}",
   ".lt-on .kc-lt-sub{color:rgba(0,229,255,.7);}",
+  ".kc-lt-subrow{display:flex;align-items:baseline;justify-content:space-between;gap:6px;min-width:0;}",
+  ".kc-lt-ago{font-size:9px;color:rgba(0,229,255,.28);white-space:nowrap;flex-shrink:0;font-family:'Courier New',monospace;}",
   ".kc-lt-bar-wrap{position:absolute;bottom:0;left:0;right:0;height:2px;background:rgba(0,229,255,.07);z-index:2;}",
   ".kc-lt-bar{height:2px;border-radius:0;background:rgba(0,229,255,.6);transition:width .1s;box-shadow:0 0 4px rgba(0,229,255,.35);}",
   ".kc-gauge-grid{display:grid;gap:5px;}",
@@ -1265,6 +1275,7 @@ class KitchenCard extends HTMLElement {
       const tc       = themeColors(cfg.theme);
       const icolor   = on ? tc.lightOn : tc.lightOff;
       const subTxt   = unavail ? 'N/A' : on ? (isLight && briPct < 100 && briPct > 0 ? briPct + '%' : 'On') : 'Off';
+      const ago      = hass && lt.entity && hass.states[lt.entity] ? agoStr(hass.states[lt.entity].last_changed) : '';
       const fillStyle= on ? 'width:' + briPct + '%;background:' + tc.lightFill : 'width:0;background:' + tc.lightFill;
       const barHTML  = isLight
         ? '<div class="kc-lt-bar-wrap"><div class="kc-lt-bar" id="kc-lt-bar-' + i + '" style="width:' + (on ? briPct : 0) + '%"></div></div>'
@@ -1274,7 +1285,10 @@ class KitchenCard extends HTMLElement {
         '<div class="kc-lt-icon">' + renderIcon(lt.icon || 'bulb', icolor, 18) + '</div>' +
         '<div class="kc-lt-info">' +
           '<div class="kc-lt-name">' + (lt.label || '—') + '</div>' +
-          '<div class="kc-lt-sub" id="kc-lt-sub-' + i + '">' + subTxt + '</div>' +
+          '<div class="kc-lt-subrow">' +
+            '<span class="kc-lt-sub" id="kc-lt-sub-' + i + '">' + subTxt + '</span>' +
+            '<span class="kc-lt-ago" id="kc-lt-ago-' + i + '">' + ago + '</span>' +
+          '</div>' +
         '</div>' +
         barHTML +
       '</div>';
@@ -1574,24 +1588,48 @@ class KitchenCard extends HTMLElement {
     }
   }
 
+  // Maps a section key to its renderer
+  _renderSection(key) {
+    switch (key) {
+      case 'power':      return this._powerHTML();
+      case 'appliances': return this._appliancesHTML();
+      case 'cameras':    return this._camerasHTML();
+      case 'lights':     return this._lightsHTML();
+      case 'climate':    return this._climateHTML();
+      case 'sensors':    return this._sensorsHTML();
+      default:           return '';
+    }
+  }
+
+  _normalizeLayout() {
+    const ALL = ['power', 'appliances', 'cameras', 'lights', 'climate', 'sensors'];
+    const cfg = this._config || {};
+    const lay = cfg.layout || {};
+    let left  = Array.isArray(lay.left)  ? lay.left.slice()  : [];
+    let right = Array.isArray(lay.right) ? lay.right.slice() : [];
+    // Drop unknown keys
+    left  = left.filter(function(k) { return ALL.indexOf(k) >= 0; });
+    right = right.filter(function(k) { return ALL.indexOf(k) >= 0; });
+    // Any section missing from both columns gets appended to the left so it never disappears
+    const placed = left.concat(right);
+    ALL.forEach(function(k) { if (placed.indexOf(k) < 0) left.push(k); });
+    return { left: left, right: right };
+  }
+
   _buildHTML() {
     const cfg      = this._config;
     const isFrosted = !!cfg.frosted_glass;
     const cardCls  = 'kc-card' + (isFrosted ? ' kc-frosted' : '');
+    const self     = this;
+    const lay      = this._normalizeLayout();
+    const leftHTML  = lay.left.map(function(k)  { return self._renderSection(k); }).join('');
+    const rightHTML = lay.right.map(function(k) { return self._renderSection(k); }).join('');
     return '<style>' + getCardCSS(cfg.theme) + '</style>' +
       '<div class="' + cardCls + '"><div class="kc-inner">' +
         this._headerHTML() +
         '<div class="kc-layout">' +
-          '<div class="kc-col-left">' +
-            this._powerHTML() +
-            this._appliancesHTML() +
-            this._camerasHTML() +
-          '</div>' +
-          '<div class="kc-col-right">' +
-            this._lightsHTML() +
-            this._climateHTML() +
-            this._sensorsHTML() +
-          '</div>' +
+          '<div class="kc-col-left">'  + leftHTML  + '</div>' +
+          '<div class="kc-col-right">' + rightHTML + '</div>' +
         '</div>' +
       '</div></div>';
   }
@@ -1899,6 +1937,10 @@ class KitchenCard extends HTMLElement {
       if (fill) fill.style.width = (on ? briPct : 0) + '%';
       if (bar)  bar.style.width  = (on ? briPct : 0) + '%';
       if (sub)  sub.textContent  = unavail ? 'N/A' : on ? (isLight && briPct < 100 && briPct > 0 ? briPct + '%' : 'On') : 'Off';
+      const agoEl = sr.getElementById('kc-lt-ago-' + i);
+      if (agoEl && hass && lt.entity && hass.states[lt.entity]) {
+        agoEl.textContent = agoStr(hass.states[lt.entity].last_changed);
+      }
       // Update icon color
       const iconEl = tile.querySelector('.kc-lt-icon svg, .kc-lt-icon ha-icon');
       const tcU = themeColors(cfg.theme);
@@ -2167,6 +2209,125 @@ class KitchenCardEditor extends LitElement {
   }
 
   // ── Appearance section ────────────────────────────────────────────────────
+  // ── Layout (drag-and-drop section ordering) ───────────────────────────────
+  _layoutMeta() {
+    return {
+      power:      { icon: '⚡', name: 'Power' },
+      appliances: { icon: '🍳', name: 'Appliances' },
+      cameras:    { icon: '📷', name: 'Cameras' },
+      lights:     { icon: '💡', name: 'Lights' },
+      climate:    { icon: '🌡️', name: 'Climate' },
+      sensors:    { icon: '📡', name: 'Sensors' },
+    };
+  }
+
+  _normalizedLayout() {
+    const ALL = ['power', 'appliances', 'cameras', 'lights', 'climate', 'sensors'];
+    const lay = (this._config && this._config.layout) || {};
+    let left  = Array.isArray(lay.left)  ? lay.left.slice()  : [];
+    let right = Array.isArray(lay.right) ? lay.right.slice() : [];
+    left  = left.filter(function(k)  { return ALL.indexOf(k) >= 0; });
+    right = right.filter(function(k) { return ALL.indexOf(k) >= 0; });
+    const placed = left.concat(right);
+    ALL.forEach(function(k) { if (placed.indexOf(k) < 0) left.push(k); });
+    return { left: left, right: right };
+  }
+
+  _setLayout(lay) {
+    this._set('layout', { left: lay.left.slice(), right: lay.right.slice() });
+  }
+
+  _layoutMove(col, idx, dir) {
+    const lay = this._normalizedLayout();
+    const arr = lay[col];
+    const j = idx + dir;
+    if (j < 0 || j >= arr.length) return;
+    const tmp = arr[idx]; arr[idx] = arr[j]; arr[j] = tmp;
+    this._setLayout(lay);
+  }
+
+  _layoutSwapCol(col, idx) {
+    const lay = this._normalizedLayout();
+    const other = col === 'left' ? 'right' : 'left';
+    const key = lay[col].splice(idx, 1)[0];
+    if (key) lay[other].push(key);
+    this._setLayout(lay);
+  }
+
+  // Pointer-based drag (HTML5 DnD is unreliable in HA shadow DOM)
+  _layoutDragStart(e, col, idx) {
+    e.preventDefault();
+    this._drag = { col: col, idx: idx };
+    this.requestUpdate();
+  }
+
+  _layoutDropOn(col, idx) {
+    if (!this._drag) return;
+    const lay = this._normalizedLayout();
+    const fromCol = this._drag.col, fromIdx = this._drag.idx;
+    const key = lay[fromCol][fromIdx];
+    if (!key) { this._drag = null; this.requestUpdate(); return; }
+    // remove from source
+    lay[fromCol].splice(fromIdx, 1);
+    // compute target index (account for removal shifting within same column)
+    let target = idx;
+    if (fromCol === col && fromIdx < idx) target = idx - 1;
+    lay[col].splice(target, 0, key);
+    this._drag = null;
+    this._setLayout(lay);
+  }
+
+  _layoutDropEnd(col) {
+    if (!this._drag) return;
+    const lay = this._normalizedLayout();
+    const fromCol = this._drag.col, fromIdx = this._drag.idx;
+    const key = lay[fromCol][fromIdx];
+    if (!key) { this._drag = null; this.requestUpdate(); return; }
+    lay[fromCol].splice(fromIdx, 1);
+    lay[col].push(key);
+    this._drag = null;
+    this._setLayout(lay);
+  }
+
+  _layoutColHTML(col) {
+    const self = this;
+    const meta = this._layoutMeta();
+    const lay  = this._normalizedLayout();
+    const arr  = lay[col];
+    const items = arr.map(function(key, idx) {
+      const m = meta[key] || { icon: '•', name: key };
+      const dragging = self._drag && self._drag.col === col && self._drag.idx === idx;
+      return html`
+        <div class="lay-item ${dragging ? 'dragging' : ''}"
+             @pointerdown=${(e) => self._layoutDragStart(e, col, idx)}
+             @pointerup=${() => self._layoutDropOn(col, idx)}>
+          <span class="lay-grip">⠿</span>
+          <span class="lay-ico">${m.icon}</span>
+          <span class="lay-name">${m.name}</span>
+          <span class="lay-arrows">
+            <button class="lay-arrow" title="Move up"     @click=${(e) => { e.stopPropagation(); self._layoutMove(col, idx, -1); }}>▲</button>
+            <button class="lay-arrow" title="Move down"   @click=${(e) => { e.stopPropagation(); self._layoutMove(col, idx,  1); }}>▼</button>
+            <button class="lay-arrow" title="Switch column" @click=${(e) => { e.stopPropagation(); self._layoutSwapCol(col, idx); }}>⇄</button>
+          </span>
+        </div>`;
+    });
+    return html`
+      <div class="lay-col" @pointerup=${() => self._layoutDropEnd(col)}>
+        <div class="lay-col-title">${col === 'left' ? 'Left Column' : 'Right Column'}</div>
+        ${items.length ? items : html`<div class="lay-empty">Drop sections here</div>`}
+      </div>`;
+  }
+
+  _layoutContent() {
+    return html`
+      <p class="hint">Drag a section onto another to reorder, or drop it on the other column to move it. The arrows reorder (▲▼) or switch column (⇄). On narrow screens the two columns stack (left first).</p>
+      <div class="lay-cols">
+        ${this._layoutColHTML('left')}
+        ${this._layoutColHTML('right')}
+      </div>
+    `;
+  }
+
   _appearanceContent() {
     const cfg = this._config;
     return html`
@@ -2543,6 +2704,7 @@ class KitchenCardEditor extends LitElement {
         <div class="ed-root">
           ${this._section('header',     '🏠 Header',               undefined,          this._headerContent())}
           ${this._section('appearance', '🎨 Appearance',            undefined,          this._appearanceContent())}
+          ${this._section('layout',     '🧩 Layout',               undefined,          this._layoutContent())}
           ${this._section('power',      '⚡ Power',                counts.power,       this._powerContent())}
           ${this._section('appliances', '🍳 Appliances',           counts.appliances,  this._appliancesContent())}
           ${this._section('cameras',    '📷 Cameras',              counts.cameras,     this._camerasContent())}
@@ -2579,6 +2741,21 @@ class KitchenCardEditor extends LitElement {
       .hint-group { font-size: 10px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--primary-color, #e07c4f); margin: 10px 0 6px; }
       .ed-type-hint { font-size: 11px; color: var(--secondary-text-color, rgba(255,255,255,.5)); margin: 0 0 8px; padding: 6px 8px; background: rgba(255,255,255,.03); border-radius: 6px; border-left: 2px solid var(--primary-color, #e07c4f); }
       .appl-add-row { display: flex; gap: 6px; }
+
+      /* Layout drag-and-drop editor */
+      .lay-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+      .lay-col { background: rgba(0,0,0,.18); border: 1px solid var(--divider-color, rgba(255,255,255,.06)); border-radius: 9px; padding: 10px; min-height: 120px; }
+      .lay-col-title { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--secondary-text-color, rgba(255,255,255,.5)); margin-bottom: 8px; }
+      .lay-item { background: var(--secondary-background-color, rgba(255,255,255,.05)); border: 1px solid var(--divider-color, rgba(255,255,255,.1)); border-radius: 8px; padding: 8px 9px; margin-bottom: 7px; display: flex; align-items: center; gap: 8px; cursor: grab; touch-action: none; user-select: none; transition: border-color .15s, opacity .15s; }
+      .lay-item:last-child { margin-bottom: 0; }
+      .lay-item.dragging { opacity: .4; border-color: var(--primary-color, #e07c4f); }
+      .lay-grip { color: var(--secondary-text-color, rgba(255,255,255,.35)); font-size: 14px; cursor: grab; }
+      .lay-ico { font-size: 15px; }
+      .lay-name { flex: 1; font-size: 13px; color: var(--primary-text-color, #fff); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .lay-arrows { display: flex; gap: 3px; flex-shrink: 0; }
+      .lay-arrow { width: 24px; height: 24px; border: 1px solid var(--divider-color, rgba(255,255,255,.12)); border-radius: 6px; background: transparent; color: var(--secondary-text-color, rgba(255,255,255,.6)); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 10px; padding: 0; }
+      .lay-arrow:hover { background: rgba(255,255,255,.06); color: var(--primary-text-color, #fff); }
+      .lay-empty { font-size: 11px; color: var(--secondary-text-color, rgba(255,255,255,.35)); text-align: center; padding: 16px 0; border: 1px dashed var(--divider-color, rgba(255,255,255,.12)); border-radius: 7px; }
 
       ha-entity-picker, ha-icon-picker { display: block; width: 100%; }
 
