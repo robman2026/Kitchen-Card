@@ -15,7 +15,7 @@
  *  6. Sensors — motion, door, illuminance, occupancy etc.
  */
 
-const CARD_VERSION = "2.3.0";
+const CARD_VERSION = "2.4.0";
 
 // ── LitElement bootstrap (same pattern as all robman2026 cards) ──────────────
 const LitElement = Object.getPrototypeOf(customElements.get("ha-panel-lovelace"));
@@ -746,8 +746,48 @@ const CARD_CSS_HOLO = [
 ].join('');
 
 // Theme selector — returns the right CSS block
+// ════════════════════════════════════════════════════════════════════════════
+// CSS — JUST HA THEME (warm amber, near-black, serif headings)
+// Built as CLASSIC + a token-based override skin (--user-* with hex fallbacks),
+// so it inherits all of classic's structure and only retargets surfaces, accent,
+// text and fonts. Follows the installed Just HA Dashboard theme; safe anywhere.
+// ════════════════════════════════════════════════════════════════════════════
+const CARD_CSS_JHA = CARD_CSS_CLASSIC + [
+  ":host{font-family:var(--user-font-ui,'Hanken Grotesk',system-ui,sans-serif);}",
+  ".kc-card{background:var(--user-glow-amber,radial-gradient(120% 130% at 50% -10%,rgba(224,162,78,.30) 0%,rgba(160,104,43,.10) 38%,rgba(20,20,23,0) 72%)),var(--card-background-color,#141417);border-radius:var(--user-radius-lg,20px);border:1px solid var(--user-line,rgba(255,255,255,.09));box-shadow:0 8px 30px rgba(0,0,0,.45);}",
+  ".kc-card::before{display:none;}",
+  ".kc-title{font-family:var(--user-font-display,'Newsreader',Georgia,serif);font-weight:500;letter-spacing:.01em;color:var(--primary-text-color,#f5f3ef);text-transform:none;}",
+  ".kc-title-icon{color:var(--user-amber,#e0a24e);}",
+  ".kc-sec{color:var(--user-text-muted,#9b9aa0);letter-spacing:.13em;font-weight:600;}",
+  ".kc-header{border-bottom-color:var(--user-line-soft,rgba(255,255,255,.06));}",
+  ".kc-divider{background:var(--user-line-soft,rgba(255,255,255,.06));}",
+  ".kc-date{color:var(--user-text-muted,#9b9aa0);}",
+  ".kc-dot.online{background:var(--user-green,#79ce8d);}",
+  ".kc-power-tile,.kc-appl-tile,.kc-gauge-tile,.kc-pw-spark-tile,.kc-pw-meter-tile,.kc-pw-row-tile,.kc-cl-stat-tile,.kc-cl-harc-tile,.kc-cl-bar-tile,.kc-sensor-tile{background:var(--user-ink-750,#18181c);border-color:var(--user-line-soft,rgba(255,255,255,.06));}",
+  ".kc-power-tile:hover,.kc-appl-tile:hover,.kc-gauge-tile:hover,.kc-sensor-tile:hover,.kc-pw-spark-tile:hover,.kc-pw-meter-tile:hover,.kc-pw-row-tile:hover,.kc-cl-stat-tile:hover,.kc-cl-harc-tile:hover,.kc-cl-bar-tile:hover{background:var(--user-ink-700,#1f1f24);}",
+  ".kc-light-tile{border-radius:var(--user-radius-md,14px);}",
+  ".kc-light-tile.lt-off{background:var(--user-ink-750,#18181c);}",
+  ".kc-light-tile.lt-on{background:var(--fill-amber-weak,rgba(224,162,78,.14));border-color:rgba(224,162,78,.28);}",
+  ".kc-lt-icon{background:var(--user-ink-850,#0e0e11);}",
+  ".lt-on .kc-lt-name{color:var(--primary-text-color,#f5f3ef);}",
+  ".lt-on .kc-lt-sub{color:var(--user-amber,#e0a24e);}",
+  ".kc-lt-bar{background:var(--user-amber,#e0a24e);}",
+  ".kc-appl-tile.appl-active{background:var(--fill-amber-weak,rgba(224,162,78,.14));border-color:rgba(224,162,78,.28);}",
+  ".kc-op-active,.kc-ctrl-btn.cb-on{color:var(--user-amber,#e0a24e);}",
+  ".kc-op-ready,.kc-badge-on{color:var(--user-green,#79ce8d);}",
+  ".kc-badge-idle,.kc-ctrl-btn.cb-pause{color:var(--user-iris,#9aa0e6);}",
+  ".kc-sensor-tile.motion-active,.kc-sensor-icon-wrap.motion-active{background:var(--fill-amber-weak,rgba(224,162,78,.14));border-color:rgba(224,162,78,.3);}",
+  ".ksv-open{color:var(--user-amber,#e0a24e);}",
+  ".ksv-motion{color:var(--user-amber,#e0a24e);}",
+  ".ksv-on{color:var(--user-iris,#9aa0e6);}",
+  ".kc-cam-tile{background:var(--user-ink-850,#0e0e11);border-color:var(--user-line-soft,rgba(255,255,255,.06));}",
+  ".kc-frosted{background:var(--kc-fg-bg,rgba(8,8,10,.55))!important;border:1px solid var(--user-line,rgba(255,255,255,.09))!important;}",
+].join('');
+
 function getCardCSS(theme) {
-  return theme === 'holo' ? CARD_CSS_HOLO : CARD_CSS_CLASSIC;
+  if (theme === 'holo') return CARD_CSS_HOLO;
+  if (theme === 'jha')  return CARD_CSS_JHA;
+  return CARD_CSS_CLASSIC;
 }
 
 // Theme-aware inline colors — used in HTML render methods
@@ -778,6 +818,35 @@ function themeColors(theme) {
       climateDot:     '#4fa3e0',
       sensorsDot:     '#00e5ff',
       camerasDot:     '#00e5ff',
+    };
+  }
+  if (theme === 'jha') {
+    // Just HA Dashboard — warm amber on near-black (hex; also used in inline SVG strokes).
+    return {
+      iconDefault:    'rgba(255,255,255,.38)',
+      lightOn:        '#e0a24e',
+      lightOff:       'rgba(255,255,255,.5)',
+      lightFill:      'rgba(224,162,78,.18)',
+      applOn:         '#e0a24e',
+      applOff:        'rgba(255,255,255,.35)',
+      applUnavail:    'rgba(255,255,255,.2)',
+      doorOpen:       '#e0a24e',
+      doorClosed:     'rgba(255,255,255,.5)',
+      remoteDotOn:    '#79ce8d',
+      sensorOn:       '#9aa0e6',
+      sensorDoorOpen: '#e0a24e',
+      sensorDoorClosed:'rgba(255,255,255,.75)',
+      sensorOff:      'rgba(255,255,255,.7)',
+      ovenProgBar:    '#e0a24e',
+      ovenProgShadow: 'none',
+      dwProgBar:      '#9aa0e6',
+      dwProgShadow:   'none',
+      powerDot:       '#e0a24e',
+      applDot:        '#e0a24e',
+      lightsDot:      '#e0a24e',
+      climateDot:     '#79ce8d',
+      sensorsDot:     '#9aa0e6',
+      camerasDot:     '#9aa0e6',
     };
   }
   return {
@@ -863,18 +932,22 @@ class KitchenCard extends HTMLElement {
   _headerHTML() {
     const cfg   = this._config;
     const isHolo = (cfg.theme === 'holo');
+    const isJha  = (cfg.theme === 'jha');
     const iconHTML = cfg.card_icon
       ? '<span class="kc-title-icon"><ha-icon icon="' + cfg.card_icon + '"></ha-icon></span>'
       : '';
 
+    // Just HA uses serif Title Case; classic/holo use tracked uppercase.
+    const rawTitle = String(cfg.card_title || 'Kitchen');
+    const titleText = isJha ? rawTitle : rawTitle.toUpperCase();
     const titleInner = isHolo
       ? '<div style="display:flex;flex-direction:column;gap:2px;min-width:0;">' +
           '<div class="kc-zone-label">Zone · Detail · Kitchen</div>' +
           '<div style="display:flex;align-items:center;gap:6px;">' + iconHTML +
-            '<div class="kc-title">' + String(cfg.card_title || 'Kitchen').toUpperCase() + '</div>' +
+            '<div class="kc-title">' + titleText + '</div>' +
           '</div>' +
         '</div>'
-      : iconHTML + '<div class="kc-title">' + String(cfg.card_title || 'Kitchen').toUpperCase() + '</div>';
+      : iconHTML + '<div class="kc-title">' + titleText + '</div>';
 
     const titleHTML = '<div class="kc-title-wrap">' + titleInner + '</div>';
 
@@ -1642,7 +1715,10 @@ class KitchenCard extends HTMLElement {
     if (cfg.frosted_glass) {
       const opacity = Math.min(0.9, Math.max(0.1, parseFloat(cfg.frosted_opacity) || 0.52));
       const blur    = Math.min(40,  Math.max(4,   parseFloat(cfg.frosted_blur)    || 22));
-      this.style.setProperty('--kc-fg-bg',  isHolo ? 'rgba(4,13,26,' + opacity + ')' : 'rgba(8,14,30,' + opacity + ')');
+      const fgBg = isHolo ? 'rgba(4,13,26,' + opacity + ')'
+                 : cfg.theme === 'jha' ? 'rgba(8,8,10,' + opacity + ')'
+                 : 'rgba(8,14,30,' + opacity + ')';
+      this.style.setProperty('--kc-fg-bg', fgBg);
       this.style.setProperty('--kc-fg-blur', blur + 'px');
     }
   }
@@ -2332,7 +2408,7 @@ class KitchenCardEditor extends LitElement {
     const cfg = this._config;
     return html`
       ${this._seg('Theme', cfg.theme || 'classic',
-        [{ val:'classic', label:'🎨 Classic' }, { val:'holo', label:'🔷 Holo Home' }],
+        [{ val:'classic', label:'🎨 Classic' }, { val:'holo', label:'🔷 Holo Home' }, { val:'jha', label:'✨ Just HA' }],
         (v) => this._set('theme', v))}
       <p class="hint">${cfg.theme === 'holo'
         ? '🔷 Holo Home — deep navy grid, cyan scan-lines, monospace HUD typography.'
